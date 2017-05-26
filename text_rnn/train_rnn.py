@@ -13,10 +13,6 @@
 #  limitations under the License.
 """Example of Estimator for DNN-based text classification with DBpedia data."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import argparse
 import sys
 
@@ -34,7 +30,7 @@ import data_utils
 FLAGS = None
 
 MAX_DOCUMENT_LENGTH = 10000
-EMBEDDING_SIZE = 500
+EMBEDDING_SIZE = 300
 n_words = 100000
 
 
@@ -81,8 +77,7 @@ def rnn_model(features, target):
     # regression over output classes.
     # target = tf.one_hot(target, 15, 1, 0)
     logits = tf.contrib.layers.fully_connected(encoding, 2794, activation_fn=None)
-    loss = tf.losses.softmax_cross_entropy(logits, target)
-    tf.losses.softmax_cross_entropy(onehot_labels=tar)
+    loss = tf.losses.softmax_cross_entropy(onehot_labels=target, logits=logits)
     # Create a training op.
     train_op = tf.contrib.layers.optimize_loss(
         loss,
@@ -107,7 +102,7 @@ def main(unused_argv):
     del data
     # Process label to one hot vector
     lb = LabelBinarizer()
-    y = np.array(list(lb.fit_transform(label)))
+    y = np.array(list(lb.fit_transform(label)), dtype=np.float32)
     del label
     # np.random.seed(10)
     # shuffle_indices = np.random.permutation(np.arange(len(y)))
@@ -132,10 +127,12 @@ def main(unused_argv):
 
     # Train and predict
     classifier.fit(x_train, y_train, steps=20000)
-    y_predicted = [
-        p['class'] for p in classifier.predict(x_test, as_iterable=True)]
-    score = metrics.accuracy_score(y_test, y_predicted)
-    print('Accuracy: {0:f}'.format(score))
+    accuracy = classifier.evaluate(x_test, y_test, steps=2000)['accuracy']
+    print('Accuracy: {0:f}'.format_map(accuracy))
+    # y_predicted = [
+    #     p['class'] for p in classifier.predict(x_test, as_iterable=True)]
+    # score = metrics.accuracy_score(y_test, y_predicted)
+    # print('Accuracy: {0:f}'.format(score))
 
 
 if __name__ == '__main__':
