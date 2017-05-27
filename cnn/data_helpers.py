@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import re
 from sklearn.preprocessing import LabelBinarizer
 from tensorflow.contrib import learn
@@ -45,24 +46,25 @@ def load_data_and_labels(positive_data_file, negative_data_file):
     return [x_text, y]
 
 
-def load_data_labels(*data_files, *labels_files):
+def load_data_labels(data_files, labels_files):
     """
     Loads MR polarity data from files, splits the data into words and generates labels.
     Returns split sentences and labels.
     """
     data = []
-    labels = []
     for data_file in data_files:
         with open(data_file, 'r', encoding='latin-1') as f:
             data.extend([s.strip() for s in f.readlines()])
             data = [clean_str(s) for s in data]
+
+    labels = pd.read_csv(labels_files[0])
+    labels_files.pop(0)
     for labels_file in labels_files:
-        with open(labels_file, 'r') as f:
-            labels.extend([s.strip() for s in f.readlines()])
-            labels = [label.split(',')[1].strip() for label in labels]
+        labels_df = pd.read_csv(labels_file)
+        labels.append(labels_df)
 
     lb = LabelBinarizer()
-    y = lb.fit_transform(labels)
+    y = lb.fit_transform(labels.who)
 
     max_document_length = max([len(x.split(" ")) for x in data])
     print("max document length: %s".format(max_document_length))
