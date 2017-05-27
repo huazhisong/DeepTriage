@@ -27,7 +27,7 @@ tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (d
 tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
-
+tf.flags.DEFINE_float("learning_rate", 1e-7, "learning rate")
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
@@ -63,8 +63,7 @@ test_data = ['../../data/data_by_ocean/eclipse/raw/2004_summary_description.csv'
 label_test_data = ['../../data/data_by_ocean/eclipse/raw/2004_bug_id_date_who.csv',
                    '../../data/data_by_ocean/eclipse/raw/2005_bug_id_date_who.csv',
                    '../../data/data_by_ocean/eclipse/raw/2006_bug_id_date_who.csv']
-x_train, y_train, vocab_processor = data_helpers.load_data_labels(train_data, label_data)
-x_dev, y_dev, _ = data_helpers.load_data_labels(test_data, label_test_data)
+x_train, y_train, x_dev, y_dev, vocab_processor = data_helpers.load_data_labels(train_data, label_data, test_data, label_test_data)
 
 # Randomly shuffle data
 # np.random.seed(10)
@@ -103,7 +102,7 @@ with tf.Graph().as_default():
 
         # Define Training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
-        optimizer = tf.train.AdamOptimizer(1e-3)
+        optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
         grads_and_vars = optimizer.compute_gradients(cnn.loss)
         train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
         # Keep track of gradient values and sparsity (optional)
@@ -196,14 +195,14 @@ with tf.Graph().as_default():
             current_step = tf.train.global_step(sess, global_step)
             if current_step % FLAGS.evaluate_every == 0:
                 print("\nEvaluation:")
-                # dev_batches = data_helpers.batch_iter(list(zip(x_dev, y_dev)), FLAGS.batch_size, FLAGS.num_epochs)
-                #
-                # for dev_batche in dev_batches:
-                #     x_dev_batch, y_dev_batch = zip(*dev_batche)
-                #     cnt += 1
-                #     dev_step(x_dev_batch, y_dev_batch, cnt=cnt, writer=dev_summary_writer)
-                # print("")
-                dev_step(x_dev, y_dev, writer=dev_summary_writer)
+                dev_batches = data_helpers.batch_iter(list(zip(x_dev, y_dev)), FLAGS.batch_size, FLAGS.num_epochs)
+
+                for dev_batche in dev_batches:
+                    x_dev_batch, y_dev_batch = zip(*dev_batche)
+                    cnt += 1
+                    dev_step(x_dev_batch, y_dev_batch, cnt=cnt, writer=dev_summary_writer)
+                print("")
+                # dev_step(x_dev, y_dev, writer=dev_summary_writer)
             if current_step % FLAGS.checkpoint_every == 0:
                 path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                 print("Saved model checkpoint to {}\n".format(path))

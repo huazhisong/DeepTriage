@@ -46,7 +46,7 @@ def load_data_and_labels(positive_data_file, negative_data_file):
     return [x_text, y]
 
 
-def load_data_labels(data_files, labels_files):
+def load_data_labels(data_files, labels_files, test_data_files, test_labels_files):
     """
     Loads MR polarity data from files, splits the data into words and generates labels.
     Returns split sentences and labels.
@@ -56,6 +56,11 @@ def load_data_labels(data_files, labels_files):
         with open(data_file, 'r', encoding='latin-1') as f:
             data.extend([s.strip() for s in f.readlines()])
             data = [clean_str(s) for s in data]
+    test_data = []
+    for test_data_file in test_data_files:
+        with open(test_data_file, 'r', encoding='latin-1') as f:
+            test_data.extend([s.strip() for s in f.readlines()])
+            test_data = [clean_str(s) for s in test_data]
 
     labels = pd.read_csv(labels_files[0])
     labels_files.pop(0)
@@ -63,14 +68,22 @@ def load_data_labels(data_files, labels_files):
         labels_df = pd.read_csv(labels_file)
         labels.append(labels_df)
 
+    test_labels = pd.read_csv(test_labels_files[0])
+    test_labels_files.pop(0)
+    for test_labels_file in test_labels_files:
+        test_labels_df = pd.read_csv(test_labels_file)
+        test_labels.append(test_labels_df)
+
     lb = LabelBinarizer()
     y = lb.fit_transform(labels.who)
+    y_text = lb.transform(test_labels.who)
 
     max_document_length = max([len(x.split(" ")) for x in data])
     print("max document length: %s" % max_document_length)
-    vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
+    vocab_processor = learn.preprocessing.VocabularyProcessor(1000)
     x = np.array(list(vocab_processor.fit_transform(data)))
-    return x, y, vocab_processor
+    x_test = np.array(list(vocab_processor.transform(test_data)))
+    return x, y, x_test, y_text, vocab_processor
 
 
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
