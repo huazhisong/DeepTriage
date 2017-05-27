@@ -31,7 +31,7 @@ FLAGS = None
 
 MAX_DOCUMENT_LENGTH = 10000
 EMBEDDING_SIZE = 300
-n_words = 100000
+n_words = 10000
 
 
 def bag_of_words_model(features, target):
@@ -59,7 +59,7 @@ def rnn_model(features, target):
     # maps word indexes of the sequence into [batch_size, sequence_length,
     # EMBEDDING_SIZE].
     word_vectors = tf.contrib.layers.embed_sequence(
-        features, vocab_size=n_words, embed_dim=EMBEDDING_SIZE, scope='words')
+        features, vocab_size=FLAGS.vocabulary_size, embed_dim=EMBEDDING_SIZE, scope='words')
 
     # Split into list of embedding per word, while removing doc length dim.
     # word_list results to be a list of tensors [batch_size, EMBEDDING_SIZE].
@@ -123,7 +123,7 @@ def main(unused_argv):
     if FLAGS.bow_model:
         model_fn = bag_of_words_model
 
-    classifier = learn.SKCompat(learn.Estimator(model_fn=model_fn))
+    classifier = learn.SKCompat(learn.Estimator(model_fn=model_fn, model_dir="/tmp/rnn_model"))
 
     # Train and predict
     classifier.fit(x_train, y_train, steps=20000)
@@ -175,7 +175,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--vocabulary_size',
-        default=100000,
+        default=10000,
         help='vocabulary size',
         action='store_true'
     )
