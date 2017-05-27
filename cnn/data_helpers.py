@@ -67,8 +67,8 @@ def load_data_labels(data_files, labels_files):
     y = lb.fit_transform(labels.who)
 
     max_document_length = max([len(x.split(" ")) for x in data])
-    print("max document length: %s".format(max_document_length))
-    vocab_processor = learn.preprocessing.VocabularyProcessor(1000)
+    print("max document length: %s" % max_document_length)
+    vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
     x = np.array(list(vocab_processor.fit_transform(data)))
     return x, y, vocab_processor
 
