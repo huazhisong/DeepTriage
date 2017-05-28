@@ -27,12 +27,12 @@ tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (d
 tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
-tf.flags.DEFINE_float("learning_rate", 1e-7, "learning rate")
+tf.flags.DEFINE_float("learning_rate", 1e-4, "learning rate")
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("batch_size", 1000, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
+tf.flags.DEFINE_integer("evaluate_every", 1000, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 500, "Number of checkpoints to store (default: 5)")
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -165,7 +165,7 @@ with tf.Graph().as_default():
             train_summary_writer.add_summary(summaries, step)
 
 
-        def dev_step(x_batch, y_batch, writer=None):
+        def dev_step(x_batch, y_batch, cnt=0, writer=None):
             """
             Evaluates model on a dev set
             """
@@ -178,9 +178,9 @@ with tf.Graph().as_default():
                 [global_step, dev_summary_op, cnn.loss, cnn.accuracy],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
+            print("{}: step {}, loss {:g}, acc {:g}".format(time_str, cnt, loss, accuracy))
             if writer:
-                writer.add_summary(summaries, step)
+                writer.add_summary(summaries, cnt)
 
 
         # Generate batches
