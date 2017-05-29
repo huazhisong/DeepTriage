@@ -51,18 +51,10 @@ print("")
 # Load data
 print("Loading data...")
 # x, y, vocab_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.label_file)
-train_data = ['../../data/data_by_ocean/eclipse/raw/2001_summary_description.csv',
-              '../../data/data_by_ocean/eclipse/raw/2002_summary_description.csv',
-              '../../data/data_by_ocean/eclipse/raw/2003_summary_description.csv']
-label_data = ['../../data/data_by_ocean/eclipse/raw/2001_bug_id_date_who.csv',
-              '../../data/data_by_ocean/eclipse/raw/2002_bug_id_date_who.csv',
-              '../../data/data_by_ocean/eclipse/raw/2003_bug_id_date_who.csv']
-test_data = ['../../data/data_by_ocean/eclipse/raw/2004_summary_description.csv',
-             '../../data/data_by_ocean/eclipse/raw/2005_summary_description.csv',
-             '../../data/data_by_ocean/eclipse/raw/2006_summary_description.csv']
-label_test_data = ['../../data/data_by_ocean/eclipse/raw/2004_bug_id_date_who.csv',
-                   '../../data/data_by_ocean/eclipse/raw/2005_bug_id_date_who.csv',
-                   '../../data/data_by_ocean/eclipse/raw/2006_bug_id_date_who.csv']
+train_data = ['../data/data_by_ocean/eclipse/raw/0_summary_description.csv']
+label_data = ['../data/data_by_ocean/eclipse/raw/0_bug_id_date_who.csv']
+test_data = ['../data/data_by_ocean/eclipse/raw/1_summary_description.csv']
+label_test_data = ['../data/data_by_ocean/eclipse/raw/1_bug_id_date_who.csv']
 x_train, y_train, x_dev, y_dev, vocab_processor = data_helpers.load_data_labels(train_data, label_data, test_data, label_test_data)
 
 # Randomly shuffle data
