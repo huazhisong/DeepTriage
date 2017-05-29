@@ -51,10 +51,14 @@ print("")
 # Load data
 print("Loading data...")
 # x, y, vocab_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.label_file)
-train_data = ['../data/data_by_ocean/eclipse/raw/0_summary_description.csv']
-label_data = ['../data/data_by_ocean/eclipse/raw/0_bug_id_date_who.csv']
-test_data = ['../data/data_by_ocean/eclipse/raw/1_summary_description.csv']
-label_test_data = ['../data/data_by_ocean/eclipse/raw/1_bug_id_date_who.csv']
+train_data = ['../../data/data_by_ocean/eclipse/raw/0_summary_description.csv',
+              '../../data/data_by_ocean/eclipse/raw/1_summary_description.csv']
+label_data = ['../../data/data_by_ocean/eclipse/raw/0_bug_id_date_who.csv',
+              '../../data/data_by_ocean/eclipse/raw/1_bug_id_date_who.csv']
+test_data = ['../../data/data_by_ocean/eclipse/raw/2_summary_description.csv',
+             '../../data/data_by_ocean/eclipse/raw/3_summary_description.csv']
+label_test_data = ['../../data/data_by_ocean/eclipse/raw/2_bug_id_date_who.csv',
+                   '../../data/data_by_ocean/eclipse/raw/3_bug_id_date_who.csv']
 x_train, y_train, x_dev, y_dev, vocab_processor = data_helpers.load_data_labels(train_data, label_data, test_data, label_test_data)
 
 # Randomly shuffle data
@@ -157,7 +161,7 @@ with tf.Graph().as_default():
             train_summary_writer.add_summary(summaries, step)
 
 
-        def dev_step(x_batch, y_batch, cnt=0, writer=None):
+        def dev_step(x_batch, y_batch, writer=None):
             """
             Evaluates model on a dev set
             """
@@ -170,9 +174,9 @@ with tf.Graph().as_default():
                 [global_step, dev_summary_op, cnn.loss, cnn.accuracy],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}".format(time_str, cnt, loss, accuracy))
+            print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
             if writer:
-                writer.add_summary(summaries, cnt)
+                writer.add_summary(summaries, step)
 
 
         # Generate batches
@@ -180,7 +184,6 @@ with tf.Graph().as_default():
             list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
 
         # Training loop. For each batch...
-        cnt = 0
         for batch in batches:
             x_batch, y_batch = zip(*batch)
             train_step(x_batch, y_batch)
@@ -191,8 +194,7 @@ with tf.Graph().as_default():
 
                 for dev_batche in dev_batches:
                     x_dev_batch, y_dev_batch = zip(*dev_batche)
-                    cnt += 1
-                    dev_step(x_dev_batch, y_dev_batch, cnt=cnt, writer=dev_summary_writer)
+                    dev_step(x_dev_batch, y_dev_batch,writer=dev_summary_writer)
                 print("")
                 # dev_step(x_dev, y_dev, writer=dev_summary_writer)
             if current_step % FLAGS.checkpoint_every == 0:

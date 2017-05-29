@@ -80,7 +80,7 @@ def load_data_labels(data_files, labels_files, test_data_files, test_labels_file
 
     # document length取90%的分位数
     document_length_df = pd.DataFrame([len(x.split(" ")) for x in data])
-    document_length = document_length_df.quantile(0.9)
+    document_length = np.int64(document_length_df.quantile(0.8))
     vocab_processor = learn.preprocessing.VocabularyProcessor(document_length)
     x = np.array(list(vocab_processor.fit_transform(data)))
     x_test = np.array(list(vocab_processor.transform(test_data)))
