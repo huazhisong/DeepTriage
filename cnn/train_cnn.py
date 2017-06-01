@@ -52,13 +52,27 @@ print("")
 print("Loading data...")
 # x, y, vocab_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.label_file)
 train_data = ['../../data/data_by_ocean/eclipse/raw/0_summary_description.csv',
-              '../../data/data_by_ocean/eclipse/raw/1_summary_description.csv']
+              '../../data/data_by_ocean/eclipse/raw/1_summary_description.csv',
+              '../../data/data_by_ocean/eclipse/raw/2_summary_description.csv',
+              '../../data/data_by_ocean/eclipse/raw/3_summary_description.csv',
+              '../../data/data_by_ocean/eclipse/raw/4_summary_description.csv',
+              '../../data/data_by_ocean/eclipse/raw/5_summary_description.csv',
+              '../../data/data_by_ocean/eclipse/raw/6_summary_description.csv',
+              '../../data/data_by_ocean/eclipse/raw/7_summary_description.csv',
+              '../../data/data_by_ocean/eclipse/raw/8_summary_description.csv']
 label_data = ['../../data/data_by_ocean/eclipse/raw/0_bug_id_date_who.csv',
-              '../../data/data_by_ocean/eclipse/raw/1_bug_id_date_who.csv']
-test_data = ['../../data/data_by_ocean/eclipse/raw/2_summary_description.csv',
-             '../../data/data_by_ocean/eclipse/raw/3_summary_description.csv']
-label_test_data = ['../../data/data_by_ocean/eclipse/raw/2_bug_id_date_who.csv',
-                   '../../data/data_by_ocean/eclipse/raw/3_bug_id_date_who.csv']
+              '../../data/data_by_ocean/eclipse/raw/1_bug_id_date_who.csv',
+              '../../data/data_by_ocean/eclipse/raw/2_bug_id_date_who.csv',
+              '../../data/data_by_ocean/eclipse/raw/3_bug_id_date_who.csv',
+              '../../data/data_by_ocean/eclipse/raw/4_bug_id_date_who.csv',
+              '../../data/data_by_ocean/eclipse/raw/5_bug_id_date_who.csv',
+              '../../data/data_by_ocean/eclipse/raw/6_bug_id_date_who.csv',
+              '../../data/data_by_ocean/eclipse/raw/7_bug_id_date_who.csv',
+              '../../data/data_by_ocean/eclipse/raw/8_bug_id_date_who.csv']
+test_data = ['../../data/data_by_ocean/eclipse/raw/9_summary_description.csv',
+             '../../data/data_by_ocean/eclipse/raw/10_summary_description.csv']
+label_test_data = ['../../data/data_by_ocean/eclipse/raw/9_bug_id_date_who.csv',
+                   '../../data/data_by_ocean/eclipse/raw/10_bug_id_date_who.csv']
 x_train, y_train, x_dev, y_dev, vocab_processor = data_helpers.load_data_labels(train_data, label_data, test_data, label_test_data)
 
 # Randomly shuffle data
