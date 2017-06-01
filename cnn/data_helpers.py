@@ -56,35 +56,31 @@ def load_data_labels(data_files, labels_files, test_data_files, test_labels_file
         with open(data_file, 'r', encoding='latin-1') as f:
             data.extend([s.strip() for s in f.readlines()])
             data = [clean_str(s) for s in data]
+    print('train data length: %d' % len(data))
     test_data = []
     for test_data_file in test_data_files:
         with open(test_data_file, 'r', encoding='latin-1') as f:
             test_data.extend([s.strip() for s in f.readlines()])
             test_data = [clean_str(s) for s in test_data]
+    print('test data length: %d' % len(test_data))
 
-    labels = pd.read_csv(labels_files[0])
-    labels_files.pop(0)
-    for labels_file in labels_files:
-        labels_df = pd.read_csv(labels_file)
-        labels.append(labels_df)
+    labels_dfs = [pd.read_csv(f) for f in labels_files]
+    labels = pd.concat(labels_dfs)
 
-    test_labels = pd.read_csv(test_labels_files[0])
-    test_labels_files.pop(0)
-    for test_labels_file in test_labels_files:
-        test_labels_df = pd.read_csv(test_labels_file)
-        test_labels.append(test_labels_df)
+    labels_dfs = [pd.read_csv(f) for f in test_labels_files]
+    test_labels = pd.concat(labels_dfs)
 
     lb = LabelBinarizer()
-    y = lb.fit_transform(labels.who)
-    y_text = lb.transform(test_labels.who)
+    y_train = lb.fit_transform(labels.who)
+    y_test = lb.transform(test_labels.who)
 
     # document length取90%的分位数
-    document_length_df = pd.DataFrame([len(x.split(" ")) for x in data])
+    document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in data])
     document_length = np.int64(document_length_df.quantile(0.8))
     vocab_processor = learn.preprocessing.VocabularyProcessor(document_length)
-    x = np.array(list(vocab_processor.fit_transform(data)))
+    x_train = np.array(list(vocab_processor.fit_transform(data)))
     x_test = np.array(list(vocab_processor.transform(test_data)))
-    return x, y, x_test, y_text, vocab_processor
+    return x_train, y_train, x_test, y_test, vocab_processor
 
 
 def batch_iter(data, batch_size, num_epochs, shuffle=True):

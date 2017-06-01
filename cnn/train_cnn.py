@@ -73,7 +73,8 @@ test_data = ['../../data/data_by_ocean/eclipse/raw/9_summary_description.csv',
              '../../data/data_by_ocean/eclipse/raw/10_summary_description.csv']
 label_test_data = ['../../data/data_by_ocean/eclipse/raw/9_bug_id_date_who.csv',
                    '../../data/data_by_ocean/eclipse/raw/10_bug_id_date_who.csv']
-x_train, y_train, x_dev, y_dev, vocab_processor = data_helpers.load_data_labels(train_data, label_data, test_data, label_test_data)
+x_train, y_train, x_dev, y_dev, vocab_processor = data_helpers.load_data_labels(train_data, label_data,
+                                                                                test_data, label_test_data)
 
 # Randomly shuffle data
 # np.random.seed(10)
