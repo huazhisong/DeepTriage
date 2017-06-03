@@ -5,7 +5,8 @@
 import os
 import pandas as pd
 import csv
-
+from dateutil import parser
+from pandas.tseries.offsets import Hour
 # 数据位置
 data_dir = "../../data/data_by_ocean/Eclipse_raw/"
 bug_list_dir = "buglist/"
@@ -67,21 +68,37 @@ if not os.path.exists(data_dir + 'raw/bug_raw.csv'):
                            bug_history_record[' Who'].values[0]
                     f.write(line + '\n')
 else:
+    def date_parse(time):
+        tz = time.split(' ')[2]
+        dt = parser.parse(time)
+        if tz == 'EDT':
+            return dt + Hour(12)
+        elif tz == 'EST':
+            return dt + Hour(13)
+        elif tz == 'PDT':
+            return dt + Hour(15)
+        elif tz == 'PST':
+            return dt + Hour(16)
+        else:
+            print('缺少时区：%s' % tz)
+
     # 读取预处理文件
-    bug_raw = pd.read_csv(data_dir + 'raw/bug_raw.csv', sep='@@,,@@', engine='python', encoding='latin-1')
+    bug_raw = pd.read_csv(data_dir + 'raw/bug_raw.csv',
+                          sep='@@,,@@', engine='python', encoding='latin-1', parse_dates=[0], date_parser=date_parse)
     # 按照时间将数据进行排序
     bug_sorted_raw = bug_raw.sort_values('when')
     # 将排序好的数据写入磁盘备份
     bug_sorted_raw.to_csv(data_dir + 'raw/sorted_summary_description.csv', columns=['description', 'summary'],
                           header=False, index=False)
     bug_sorted_raw.to_csv(data_dir + 'raw/sorted_bug_id_date_who.csv', columns=['when', 'bug_id', 'who'], index=False)
-    # 按照年份将数据分别按年份写入磁盘
-    begin = 2001
-    end = 2016
-    for year in range(begin, end):
-        condition = (bug_sorted_raw.when > str(year)) & (bug_sorted_raw.when < str(year + 1))
-        bug_sorted_condition_raw = bug_sorted_raw[condition]
-        bug_sorted_condition_raw.to_csv(data_dir + 'raw/' + str(year) + '_summary_description.csv'.format(year),
-                                        columns=['description', 'summary'], header=False, index=False)
-        bug_sorted_condition_raw.to_csv(data_dir + 'raw/' + str(year) + '_bug_id_date_who.csv'.format(year),
-                                        columns=['when', 'bug_id', 'who'], index=False)
+    # 将数据分成11份
+    bug_len = len(bug_sorted_raw)
+    bug_part_size = int((bug_len - 1) / 11) + 1
+    for i in range(11):
+        begin_index = i * bug_part_size
+        end_index = min((i + 1) * bug_part_size, bug_len - 1)
+        bug_parted = bug_sorted_raw.iloc[begin_index:end_index]
+        bug_parted.to_csv(data_dir + 'raw/' + str(i) + '_summary_description.csv', columns=['description', 'summary'],
+                          header=False, index=False)
+        bug_parted.to_csv(data_dir + 'raw/' + str(i) + '_bug_id_date_who.csv', columns=['when', 'bug_id', 'who'],
+                          index=False)
