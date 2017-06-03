@@ -15,58 +15,28 @@
 
 import argparse
 import sys
-
-import numpy as np
-import pandas
-from sklearn import metrics
 import tensorflow as tf
-from tensorflow.contrib.layers.python.layers import encoders
-
-learn = tf.contrib.learn
-from sklearn.preprocessing import LabelBinarizer
-
 import data_utils
 
 FLAGS = None
-
-MAX_DOCUMENT_LENGTH = 10000
-EMBEDDING_SIZE = 300
-n_words = 10000
+learn = tf.contrib.learn
 
 
-def bag_of_words_model(features, target):
-    """A bag-of-words model. Note it disregards the word order in the text."""
-    target = tf.one_hot(target, 15, 1, 0)
-    features = encoders.bow_encoder(
-        features, vocab_size=n_words, embed_dim=EMBEDDING_SIZE)
-    logits = tf.contrib.layers.fully_connected(features, 15, activation_fn=None)
-    loss = tf.contrib.losses.softmax_cross_entropy(logits, target)
-    train_op = tf.contrib.layers.optimize_loss(
-        loss,
-        tf.contrib.framework.get_global_step(),
-        optimizer='Adam',
-        learning_rate=0.01)
-    return ({
-                'class': tf.argmax(logits, 1),
-                'prob': tf.nn.softmax(logits)
-            }, loss, train_op)
-
-
-def rnn_model(features, target):
+def rnn_model(features, target, vocabulary_size, embedding_size, n_class):
     """RNN model to predict from sequence of words to a class."""
     # Convert indexes of words into embeddings.
     # This creates embeddings matrix of [n_words, EMBEDDING_SIZE] and then
     # maps word indexes of the sequence into [batch_size, sequence_length,
     # EMBEDDING_SIZE].
     word_vectors = tf.contrib.layers.embed_sequence(
-        features, vocab_size=FLAGS.vocabulary_size, embed_dim=EMBEDDING_SIZE, scope='words')
+        features, vocab_size=vocabulary_size, embed_dim=embedding_size, scope='words')
 
     # Split into list of embedding per word, while removing doc length dim.
     # word_list results to be a list of tensors [batch_size, EMBEDDING_SIZE].
     word_list = tf.unstack(word_vectors, axis=1)
 
     # Create a Gated Recurrent Unit cell with hidden size of EMBEDDING_SIZE.
-    cell = tf.contrib.rnn.GRUCell(EMBEDDING_SIZE)
+    cell = tf.contrib.rnn.GRUCell(embedding_size)
 
     # Create an unrolled Recurrent Neural Networks to length of
     # MAX_DOCUMENT_LENGTH and passes word_list as inputs for each unit.
@@ -76,14 +46,14 @@ def rnn_model(features, target):
     # neural network of last step) and pass it as features for logistic
     # regression over output classes.
     # target = tf.one_hot(target, 15, 1, 0)
-    logits = tf.contrib.layers.fully_connected(encoding, 2794, activation_fn=None)
+    logits = tf.contrib.layers.fully_connected(encoding, n_class, activation_fn=None)
     loss = tf.losses.softmax_cross_entropy(onehot_labels=target, logits=logits)
     # Create a training op.
     train_op = tf.contrib.layers.optimize_loss(
         loss,
         tf.contrib.framework.get_global_step(),
         optimizer='Adam',
-        learning_rate=0.01)
+        learning_rate=FLAGS.learning_rate)
 
     return ({
                 'class': tf.argmax(logits, 1),
@@ -91,64 +61,27 @@ def rnn_model(features, target):
             }, loss, train_op)
 
 
-def main(unused_argv):
-    global n_words
+def main():
     # Prepare training and testing data
-    data, label = data_utils.read_raw_data(FLAGS.data_dir + FLAGS.data_file, FLAGS.data_dir + FLAGS.label_file)
-    # Process vocabulary
-    vocab_processor = learn.preprocessing.VocabularyProcessor(MAX_DOCUMENT_LENGTH)
-
-    x = np.array(list(vocab_processor.fit_transform(data)))
-    del data
-    # Process label to one hot vector
-    lb = LabelBinarizer()
-    y = np.array(list(lb.fit_transform(label)), dtype=np.float32)
-    del label
-    # np.random.seed(10)
-    # shuffle_indices = np.random.permutation(np.arange(len(y)))
-    # x_shuffled = tf.random_shuffle(x, seed=10)
-    # y_shuffled = tf.random_shuffle(y, seed=10)
-    # x_shuffled = x[shuffle_indices]
-    # y_shuffled = y[shuffle_indices]
-    x_shuffled = x
-    y_shuffled = y
-    dev_sample_index = -1 * int(FLAGS.test_sample_percentage * float(len(y)))
-    x_train, x_test = x_shuffled[:dev_sample_index], x_shuffled[dev_sample_index:]
-    y_train, y_test = y_shuffled[:dev_sample_index], y_shuffled[dev_sample_index:]
-    # pdb.set_trace()
-
+    x_train, y_train, x_test, y_test, vocabulary_processor = \
+        data_utils.read_raw_data(FLAGS.data_dir + FLAGS.data_file, FLAGS.dev_sample_percentage)
+    n_class = len(y_train.unique())
     # Build model
-    # Switch between rnn_model and bag_of_words_model to test different models.
-    model_fn = rnn_model
-    if FLAGS.bow_model:
-        model_fn = bag_of_words_model
-
-    classifier = learn.SKCompat(learn.Estimator(model_fn=model_fn, model_dir="/tmp/rnn_model"))
+    classifier = learn.SKCompat(
+        learn.Estimator(model_fn=lambda features, target: rnn_model(features, target,
+                                                                    vocabulary_processor.vocabulary_,
+                                                                    FLAGS.embedding_size,
+                                                                    n_class),
+                        model_dir="/tmp/rnn_model"))
 
     # Train and predict
-    classifier.fit(x_train, y_train, steps=20000)
-    accuracy = classifier.evaluate(x_test, y_test, steps=2000)['accuracy']
+    classifier.fit(x_train, y_train, steps=FLAGS.train_steps)
+    accuracy = classifier.evaluate(x_test, y_test, steps=FLAGS.dev_steps)['accuracy']
     print('Accuracy: {0:f}'.format_map(accuracy))
-    # y_predicted = [
-    #     p['class'] for p in classifier.predict(x_test, as_iterable=True)]
-    # score = metrics.accuracy_score(y_test, y_predicted)
-    # print('Accuracy: {0:f}'.format(score))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--test_with_fake_data',
-        default=False,
-        help='Test the example code with fake data.',
-        action='store_true'
-    )
-    parser.add_argument(
-        '--bow_model',
-        default=False,
-        help='Run with BOW model instead of RNN.',
-        action='store_true'
-    )
     parser.add_argument(
         '--data_dir',
         default="../../data/data_by_ocean/eclipse/",
@@ -157,7 +90,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--data_file',
-        default="textForLDA_final.csv",
+        default="sort-text-id.csv.csv",
         help='data path',
         action='store_true'
     )
@@ -168,17 +101,34 @@ if __name__ == '__main__':
         action='store_true'
     )
     parser.add_argument(
-        '--test_sample_percentage',
-        default=.2,
+        '--embedding_size',
+        default=300,
+        help='vocabulary size',
+        action='store_true'
+    )
+    parser.add_argument(
+        '--train_steps',
+        default=2e5,
+        help='training steps',
+        action='store_true'
+    )
+    parser.add_argument(
+        '--dev_steps',
+        default=1e4,
+        help='evaluating steps',
+        action='store_true'
+    )
+    parser.add_argument(
+        '--dev_sample_percentage',
+        default=0.2,
         help='Percentage of the training data to use for test',
         action='store_true'
     )
     parser.add_argument(
-        '--vocabulary_size',
-        default=10000,
+        '--learning_rate',
+        default=1e-4,
         help='vocabulary size',
         action='store_true'
     )
-
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
