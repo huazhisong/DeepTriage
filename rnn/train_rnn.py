@@ -61,7 +61,7 @@ def rnn_model(features, target, vocabulary_size, embedding_size, n_class):
             }, loss, train_op)
 
 
-def main():
+def main(unused_argv):
     # Prepare training and testing data
     x_train, y_train, x_test, y_test, vocabulary_processor = \
         data_utils.read_raw_data(FLAGS.data_dir + FLAGS.data_file, FLAGS.dev_sample_percentage)
