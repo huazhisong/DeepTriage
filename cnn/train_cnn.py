@@ -13,11 +13,7 @@ import text_cnn
 
 # Data loading params
 tf.flags.DEFINE_float("dev_sample_percentage", .2, "Percentage of the training data to use for validation")
-tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity.pos",
-                       "Data source for the positive data.")
-tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity.neg",
-                       "Data source for the negative data.")
-tf.flags.DEFINE_string("data_file", "../../data/data_by_ocean/eclipse/textForLDA_final.csv",
+tf.flags.DEFINE_string("data_file", "../../data/data_by_ocean/eclipse/sort-text-id.csv",
                        "Data source for the  data.")
 tf.flags.DEFINE_string("label_file", "../../data/data_by_ocean/eclipse/fixer.csv", "Data source for the labels data.")
 
@@ -50,47 +46,36 @@ print("")
 
 # Load data
 print("Loading data...")
+# ocean's training data
 # x, y, vocab_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.label_file)
-train_data = ['../../data/data_by_ocean/eclipse/raw/0_summary_description.csv',
-              '../../data/data_by_ocean/eclipse/raw/1_summary_description.csv',
-              '../../data/data_by_ocean/eclipse/raw/2_summary_description.csv',
-              '../../data/data_by_ocean/eclipse/raw/3_summary_description.csv',
-              '../../data/data_by_ocean/eclipse/raw/4_summary_description.csv',
-              '../../data/data_by_ocean/eclipse/raw/5_summary_description.csv',
-              '../../data/data_by_ocean/eclipse/raw/6_summary_description.csv',
-              '../../data/data_by_ocean/eclipse/raw/7_summary_description.csv',
-              '../../data/data_by_ocean/eclipse/raw/8_summary_description.csv']
-label_data = ['../../data/data_by_ocean/eclipse/raw/0_bug_id_date_who.csv',
-              '../../data/data_by_ocean/eclipse/raw/1_bug_id_date_who.csv',
-              '../../data/data_by_ocean/eclipse/raw/2_bug_id_date_who.csv',
-              '../../data/data_by_ocean/eclipse/raw/3_bug_id_date_who.csv',
-              '../../data/data_by_ocean/eclipse/raw/4_bug_id_date_who.csv',
-              '../../data/data_by_ocean/eclipse/raw/5_bug_id_date_who.csv',
-              '../../data/data_by_ocean/eclipse/raw/6_bug_id_date_who.csv',
-              '../../data/data_by_ocean/eclipse/raw/7_bug_id_date_who.csv',
-              '../../data/data_by_ocean/eclipse/raw/8_bug_id_date_who.csv']
-test_data = ['../../data/data_by_ocean/eclipse/raw/9_summary_description.csv',
-             '../../data/data_by_ocean/eclipse/raw/10_summary_description.csv']
-label_test_data = ['../../data/data_by_ocean/eclipse/raw/9_bug_id_date_who.csv',
-                   '../../data/data_by_ocean/eclipse/raw/10_bug_id_date_who.csv']
-x_train, y_train, x_dev, y_dev, vocab_processor = data_helpers.load_data_labels(train_data, label_data,
-                                                                                test_data, label_test_data)
 
-# Randomly shuffle data
-# np.random.seed(10)
-# shuffle_indices = np.random.permutation(np.arange(len(y)))
-# x_shuffled = x[shuffle_indices]
-# y_shuffled = y[shuffle_indices]
-
-# x_shuffled = x
-# y_shuffled = y
-# # Split train/test set
-# # TO#DO: This is very crude, should use cross-validation
-# dev_sample_index = -1 * int(FLAGS.dev_sample_percentage * float(len(y)))
-# x_train, x_dev = x_shuffled[:dev_sample_index], x_shuffled[dev_sample_index:]
-# y_train, y_dev = y_shuffled[:dev_sample_index], y_shuffled[dev_sample_index:]
-print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
-print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
+# xiaowan training data
+x_train, y_train, x_dev, y_dev, vocabulary_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.dev_sample_percentage)
+# mine training data
+# train_data = ['../../data/data_by_ocean/eclipse/raw/0_summary_description.csv',
+#               '../../data/data_by_ocean/eclipse/raw/1_summary_description.csv',
+#               '../../data/data_by_ocean/eclipse/raw/2_summary_description.csv',
+#               '../../data/data_by_ocean/eclipse/raw/3_summary_description.csv',
+#               '../../data/data_by_ocean/eclipse/raw/4_summary_description.csv',
+#               '../../data/data_by_ocean/eclipse/raw/5_summary_description.csv',
+#               '../../data/data_by_ocean/eclipse/raw/6_summary_description.csv',
+#               '../../data/data_by_ocean/eclipse/raw/7_summary_description.csv',
+#               '../../data/data_by_ocean/eclipse/raw/8_summary_description.csv']
+# label_data = ['../../data/data_by_ocean/eclipse/raw/0_bug_id_date_who.csv',
+#               '../../data/data_by_ocean/eclipse/raw/1_bug_id_date_who.csv',
+#               '../../data/data_by_ocean/eclipse/raw/2_bug_id_date_who.csv',
+#               '../../data/data_by_ocean/eclipse/raw/3_bug_id_date_who.csv',
+#               '../../data/data_by_ocean/eclipse/raw/4_bug_id_date_who.csv',
+#               '../../data/data_by_ocean/eclipse/raw/5_bug_id_date_who.csv',
+#               '../../data/data_by_ocean/eclipse/raw/6_bug_id_date_who.csv',
+#               '../../data/data_by_ocean/eclipse/raw/7_bug_id_date_who.csv',
+#               '../../data/data_by_ocean/eclipse/raw/8_bug_id_date_who.csv']
+# test_data = ['../../data/data_by_ocean/eclipse/raw/9_summary_description.csv',
+#              '../../data/data_by_ocean/eclipse/raw/10_summary_description.csv']
+# label_test_data = ['../../data/data_by_ocean/eclipse/raw/9_bug_id_date_who.csv',
+#                    '../../data/data_by_ocean/eclipse/raw/10_bug_id_date_who.csv']
+# x_train, y_train, x_dev, y_dev, vocab_processor = data_helpers.load_data_labels(train_data, label_data,
+#                                                                                 test_data, label_test_data)
 
 # Training
 # ==================================================
@@ -105,7 +90,7 @@ with tf.Graph().as_default():
         cnn = text_cnn.TextCNN(
             sequence_length=x_train.shape[1],
             num_classes=y_train.shape[1],
-            vocab_size=len(vocab_processor.vocabulary_),
+            vocab_size=len(vocabulary_processor.vocabulary_),
             embedding_size=FLAGS.embedding_dim,
             filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
             num_filters=FLAGS.num_filters,
@@ -153,7 +138,7 @@ with tf.Graph().as_default():
         saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
 
         # Write vocabulary
-        vocab_processor.save(os.path.join(out_dir, "vocab"))
+        vocabulary_processor.save(os.path.join(out_dir, "vocab"))
 
         # Initialize all variables
         sess.run(tf.global_variables_initializer())
@@ -193,7 +178,6 @@ with tf.Graph().as_default():
             if writer:
                 writer.add_summary(summaries, step)
 
-
         # Generate batches
         batches = data_helpers.batch_iter(
             list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
@@ -207,8 +191,8 @@ with tf.Graph().as_default():
                 print("\nEvaluation:")
                 dev_batches = data_helpers.batch_iter(list(zip(x_dev, y_dev)), FLAGS.batch_size, FLAGS.num_epochs)
 
-                for dev_batche in dev_batches:
-                    x_dev_batch, y_dev_batch = zip(*dev_batche)
+                for dev_batch in dev_batches:
+                    x_dev_batch, y_dev_batch = zip(*dev_batch)
                     dev_step(x_dev_batch, y_dev_batch,writer=dev_summary_writer)
                 print("")
                 # dev_step(x_dev, y_dev, writer=dev_summary_writer)

@@ -6,6 +6,7 @@ from tensorflow.contrib import learn
 import pdb
 import collections
 
+
 def clean_str(string):
     """
     Tokenization/string cleaning for all datasets except for SST.
@@ -25,6 +26,7 @@ def clean_str(string):
     string = re.sub(r"\?", " \? ", string)
     string = re.sub(r"\s{2,}", " ", string)
     return string.strip().lower()
+
 
 def load_data_and_labels(positive_data_file, negative_data_file):
     """
@@ -83,6 +85,39 @@ def load_data_labels(data_files, labels_files, test_data_files, test_labels_file
     return x_train, y_train, x_test, y_test, vocab_processor
 
 
+def load_data_labels(data_file, dev_sample_percentage = 0.2):
+    """
+    Loads MR polarity data from files, splits the data into words and generates labels.
+    Returns split sentences and labels.
+    """
+
+    data = pd.read_csv(data_file, encoding='latin-1')
+    x = data.text
+    y = data.fixer
+    # TODO: This is very crude, should use cross-validation
+    dev_sample_index = -1 * int(dev_sample_percentage * float(len(y)))
+    x_train, x_dev = x[:dev_sample_index], x[dev_sample_index:]
+    y_train, y_dev = y[:dev_sample_index], y[dev_sample_index:]
+
+    # 处理training data
+    # document length取90%的分位数
+    document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in x_train])
+    document_length = np.int64(document_length_df.quantile(0.8))
+    vocabulary_processor = learn.preprocessing.VocabularyProcessor(document_length)
+    x_train = np.array(list(vocabulary_processor.fit_transform(x_train)))
+    x_dev = np.array(list(vocabulary_processor.transform(x_dev)))
+
+    # 处理label
+    lb = LabelBinarizer()
+    y_train = lb.fit_transform(y_train)
+    y_dev = lb.transform(y_dev)
+
+    print("Vocabulary Size: {:d}".format(len(vocabulary_processor.vocabulary_)))
+    print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
+
+    return x_train, y_train, x_dev, y_dev, vocabulary_processor
+
+
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
     """
     Generates a batch iterator for a dataset.
@@ -102,5 +137,7 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
             end_index = min((batch_num + 1) * batch_size, data_size)
             yield shuffled_data[start_index:end_index]
 
+
 if __name__ == "__main__":
-    x, y, vocab_processor = load_data_labels("../../data/data_by_ocean/eclipse/textForLDA_final.csv", "../../data/data_by_ocean/eclipse/fixer.csv")
+    x, y, vocab_processor = load_data_labels("../../data/data_by_ocean/eclipse/textForLDA_final.csv",
+                                             "../../data/data_by_ocean/eclipse/fixer.csv")
