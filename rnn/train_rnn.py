@@ -16,10 +16,14 @@
 import argparse
 import sys
 import tensorflow as tf
+from tensorflow.contrib import learn
+from sklearn import metrics
 import data_helper
+import pdb
 
 FLAGS = None
-learn = tf.contrib.learn
+
+tf.logging.set_verbosity(tf.logging.INFO)
 
 
 def rnn_model(features, target, vocabulary_size, embedding_size, n_class):
@@ -65,19 +69,52 @@ def main(unused_argv):
     # Prepare training and testing data
     x_train, y_train, x_test, y_test, vocabulary_processor = \
         data_helper.load_data_labels(FLAGS.data_dir + FLAGS.data_file, FLAGS.dev_sample_percentage)
-    n_class = len(y_train.unique())
-    # Build model
-    classifier = learn.SKCompat(
-        learn.Estimator(model_fn=lambda features, target: rnn_model(features, target,
-                                                                    vocabulary_processor.vocabulary_,
-                                                                    FLAGS.embedding_size,
-                                                                    n_class),
-                        model_dir="/tmp/rnn_model"))
 
-    # Train and predict
-    classifier.fit(x_train, y_train, steps=FLAGS.train_steps)
-    accuracy = classifier.evaluate(x_test, y_test, steps=FLAGS.dev_steps)['accuracy']
-    print('Accuracy: {0:f}'.format_map(accuracy))
+    # 验证矩阵
+    validation_metrics = {
+        "accuracy":
+            tf.contrib.learn.MetricSpec(
+                metric_fn=tf.contrib.metrics.streaming_accuracy,
+                prediction_key=
+                tf.contrib.learn.prediction_key.PredictionKey.CLASSES),
+        "precision":
+            tf.contrib.learn.MetricSpec(
+                metric_fn=tf.contrib.metrics.streaming_precision,
+                prediction_key=
+                tf.contrib.learn.prediction_key.PredictionKey.CLASSES),
+        "recall":
+            tf.contrib.learn.MetricSpec(
+                metric_fn=tf.contrib.metrics.streaming_recall,
+                prediction_key=
+                tf.contrib.learn.prediction_key.PredictionKey.CLASSES)
+    }
+
+    validation_monitor = tf.contrib.learn.monitors.ValidationMonitor(
+        x_test,
+        y_test,
+        every_n_steps=1000,
+        metrics=validation_metrics,
+        early_stopping_metric="loss",
+        early_stopping_metric_minimize=True,
+        early_stopping_rounds=2000)
+
+    n_class = y_train.shape[1]
+    # Build model
+    classifier = learn.Estimator(model_fn=lambda features, target: rnn_model(features, target,
+                                                                             len(vocabulary_processor.vocabulary_),
+                                                                             FLAGS.embedding_size,
+                                                                             n_class),
+                                 model_dir="/tmp/rnn_model",
+                                 config=tf.contrib.learn.RunConfig(save_checkpoints_secs=1e4))
+
+    # Train and evaluate
+    classifier.fit(x_train, y_train, steps=FLAGS.train_steps, monitors=[validation_monitor])
+    y_predicted = [
+        p['class'] for p in classifier.predict(
+            x_test, as_iterable=True)
+    ]
+    score = metrics.accuracy_score(y_test, y_predicted)
+    print('Accuracy: {0:f}'.format(score))
 
 
 if __name__ == '__main__':
@@ -127,7 +164,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--learning_rate',
         default=1e-4,
-        help='vocabulary size',
+        help='learning rate',
         action='store_true'
     )
     FLAGS, unparsed = parser.parse_known_args()
