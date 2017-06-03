@@ -16,7 +16,7 @@
 import argparse
 import sys
 import tensorflow as tf
-import data_utils
+import data_helper
 
 FLAGS = None
 learn = tf.contrib.learn
@@ -64,7 +64,7 @@ def rnn_model(features, target, vocabulary_size, embedding_size, n_class):
 def main(unused_argv):
     # Prepare training and testing data
     x_train, y_train, x_test, y_test, vocabulary_processor = \
-        data_utils.read_raw_data(FLAGS.data_dir + FLAGS.data_file, FLAGS.dev_sample_percentage)
+        data_helper.load_data_labels(FLAGS.data_dir + FLAGS.data_file, FLAGS.dev_sample_percentage)
     n_class = len(y_train.unique())
     # Build model
     classifier = learn.SKCompat(
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--data_file',
-        default="sort-text-id.csv.csv",
+        default="sort-text-id.csv",
         help='data path',
         action='store_true'
     )

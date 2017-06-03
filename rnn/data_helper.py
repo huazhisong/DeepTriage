@@ -52,8 +52,8 @@ def load_data_labels(data_file, dev_sample_percentage=0.2):
     document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in x_train])
     document_length = np.int64(document_length_df.quantile(0.8))
     vocabulary_processor = learn.preprocessing.VocabularyProcessor(document_length)
-    x_train = np.array(list(vocabulary_processor.fit_transform(x_train)))
-    x_dev = np.array(list(vocabulary_processor.transform(x_dev)))
+    x_train = vocabulary_processor.fit_transform(x_train)
+    x_dev = vocabulary_processor.transform(x_dev)
 
     # 处理label
     lb = LabelBinarizer()
