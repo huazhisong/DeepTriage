@@ -17,9 +17,7 @@ import argparse
 import sys
 import tensorflow as tf
 from tensorflow.contrib import learn
-from sklearn import metrics
 import data_helper
-import pdb
 
 FLAGS = None
 
@@ -109,13 +107,8 @@ def main(unused_argv):
 
     # Train and evaluate
     classifier.fit(x_train, y_train, steps=FLAGS.train_steps, monitors=[validation_monitor])
-    y_predicted = [
-        p['class'] for p in classifier.predict(
-            x_test, as_iterable=True)
-    ]
-    score = metrics.accuracy_score(y_test, y_predicted)
-    print('Accuracy: {0:f}'.format(score))
-
+    accuracy = classifier.evaluate(y_train, y_test)
+    print('Accuracy: {0:f}'.format(accuracy))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
