@@ -131,7 +131,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--embedding_size',
-        default=256,
+        default=300,
         help='vocabulary size',
         action='store_true'
     )
