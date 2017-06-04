@@ -61,7 +61,7 @@ def load_data_labels(data_file, dev_sample_percentage=0.2):
     lb = LabelBinarizer()
     y_train = lb.fit_transform(y_train)
     y_dev = lb.transform(y_dev)
-    print("Document length: {:d}".format(document_length,))
+    print("Document length: %d" % document_length)
     print("Vocabulary Size: {:d}".format(len(vocabulary_processor.vocabulary_)))
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
 
