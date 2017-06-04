@@ -105,7 +105,7 @@ def main(unused_argv):
     # , monitors=[validation_monitor])
     y_test = (y for y in y_test)
     accuracy = classifier.score(x_test, y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps)
-    print('Accuracy: %f' % accuracy)
+    print('Accuracy: %d' % accuracy)
 
 
 if __name__ == '__main__':
