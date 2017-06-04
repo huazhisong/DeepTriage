@@ -133,13 +133,13 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--embedding_size',
-        default=300,
+        default=128,
         help='vocabulary size',
         action='store_true'
     )
     parser.add_argument(
         '--batch_size',
-        default=1000,
+        default=128,
         help='batch size',
         action='store_true'
     )
