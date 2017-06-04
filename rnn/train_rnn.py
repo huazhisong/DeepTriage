@@ -95,17 +95,21 @@ def main(unused_argv):
 
     n_class = y_train.shape[1]
     # Build model
-    classifier = learn.Estimator(model_fn=lambda features, target: rnn_model(features, target,
-                                                                             len(vocabulary_processor.vocabulary_),
-                                                                             FLAGS.embedding_size,
-                                                                             n_class),
-                                 model_dir="/tmp/rnn_model",
-                                 config=tf.contrib.learn.RunConfig(save_checkpoints_secs=1e4))
+    classifier = learn.SKCompat(learn.Estimator(model_fn=lambda features, target: rnn_model(features, target,
+                                                                                            len(
+                                                                                                vocabulary_processor.vocabulary_),
+                                                                                            FLAGS.embedding_size,
+                                                                                            n_class),
+                                                model_dir="/tmp/rnn_model",
+                                                config=tf.contrib.learn.RunConfig(save_checkpoints_secs=1e3)))
 
     # Train and evaluate
-    classifier.fit(x_train, y_train, steps=FLAGS.train_steps, monitors=[validation_monitor])
-    accuracy = classifier.evaluate(y_train, y_test)
+    y_train = (y for y in y_train)
+    classifier.fit(y_train, y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps, monitors=[validation_monitor])
+    y_test = (y for y in y_test)
+    accuracy = classifier.score(x_test, y_test, batch_size=FLAGS.batch_size)
     print('Accuracy: {0:f}'.format(accuracy))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -131,6 +135,12 @@ if __name__ == '__main__':
         '--embedding_size',
         default=300,
         help='vocabulary size',
+        action='store_true'
+    )
+    parser.add_argument(
+        '--batch_size',
+        default=1000,
+        help='batch size',
         action='store_true'
     )
     parser.add_argument(

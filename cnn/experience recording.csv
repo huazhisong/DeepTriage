@@ -3,6 +3,27 @@
 源自论文：Convolutional Neural Networks for Sentence Classification
 博客：http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/
 ====================================================================
+2017年6月4号
+设计：使用小婉排序之后数据
+dev_sample_percentage：0.2
+embedding_dim：128
+filter_sizes：3,4,5
+num_filters：128
+dropout_keep_prob：0.5
+l2_reg_lambda：0.0
+learning_rate: 1e-4
+batch_size：1000
+num_epochs：200
+evaluate_every：1000
+checkpoint_every：1000
+num_checkpoints：500
+试验结果
+训练集accuracy 0.947
+测试集accuracy 0.6069
+训练时间：14h53min
+训练集的accuracy可以一直不断上升
+但是测试集基本在15k左右便不再大幅增加
+====================================================================
 2017年6月3号
 设计：将数据按照时间排序，并分成11份，前九份作为训练集，后二份作为测试集
 所有数据都没有进过stop词过滤，没有特殊处理
@@ -19,9 +40,11 @@ evaluate_every：1000
 checkpoint_every：1000
 num_checkpoints：500
 试验结果
-结果很不理想，accuracy不到0.1，损失在4.5和之间
-从训练数据来看，训练并没有收敛，accuracy基本在0.01以下
-
+训练集accuracy 0.9296
+测试集accuracy 0.5862
+训练时间：1d11h49m
+训练集accuracy还有增加的余地
+但是测试集在在10k左右便停止增长，而且出现了负增长
 ====================================================================
 2017年5月28号
 设计：更换时间序列的原始数据集
@@ -82,4 +105,4 @@ num_checkpoints：500
 1495329143文件
 训练集的accuracy很高，将近于1
 测试集由于设计的失败导致结果没有正确的显示出来
-
+=================================================================
