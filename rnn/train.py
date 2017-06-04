@@ -126,18 +126,18 @@ def train(args):
                 feed = {model.input_data: x, model.targets: y, model.initial_state: state}
                 train_loss, state, _, accuracy = sess.run([model.cost, model.final_state, model.optimizer, model.accuracy], feed_dict=feed)
                 end = time.time()
-                print '{}/{} (epoch {}), train_loss = {:.3f}, accuracy = {:.3f}, time/batch = {:.3f}'\
+                print( '{}/{} (epoch {}), train_loss = {:.3f}, accuracy = {:.3f}, time/batch = {:.3f}'\
                     .format(e * data_loader.num_batches + b + 1,
                             args.num_epochs * data_loader.num_batches,
                             e + 1,
                             train_loss,
                             accuracy,
-                            end - start)
+                            end - start))
                 if (e*data_loader.num_batches+b+1) % args.save_every == 0 \
                     or (e==args.num_epochs-1 and b==data_loader.num_batches-1):
                     checkpoint_path = os.path.join(args.save_dir, 'model.ckpt')
                     saver.save(sess, checkpoint_path, global_step=e*data_loader.num_batches+b+1)
-                    print 'model saved to {}'.format(checkpoint_path)
+                    print('model saved to {}'.format(checkpoint_path))
 
 
 

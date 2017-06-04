@@ -105,9 +105,9 @@ def main(unused_argv):
 
     # Train and evaluate
     y_train = (y for y in y_train)
-    classifier.fit(y_train, y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps, monitors=[validation_monitor])
+    classifier.fit(x_train, y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps, monitors=[validation_monitor])
     y_test = (y for y in y_test)
-    accuracy = classifier.score(x_test, y_test, batch_size=FLAGS.batch_size)
+    accuracy = classifier.score(x_test, y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps)
     print('Accuracy: {0:f}'.format(accuracy))
 
 
@@ -133,7 +133,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--embedding_size',
-        default=128,
+        default=256,
         help='vocabulary size',
         action='store_true'
     )
