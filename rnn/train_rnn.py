@@ -104,8 +104,8 @@ def main(unused_argv):
     classifier.fit(x_train, y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps)
     # , monitors=[validation_monitor])
     y_test = (y for y in y_test)
-    accuracy = classifier.score(x_test, y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps)['accuracy']
-    print('Accuracy: %d' % accuracy)
+    score = classifier.score(x_test, y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps)
+    print(score)
 
 
 if __name__ == '__main__':
