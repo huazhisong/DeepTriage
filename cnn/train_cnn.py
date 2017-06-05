@@ -18,9 +18,9 @@ tf.flags.DEFINE_string("data_file", "../../data/data_by_ocean/eclipse/sort-text-
 tf.flags.DEFINE_string("label_file", "../../data/data_by_ocean/eclipse/fixer.csv", "Data source for the labels data.")
 
 # Model Hyperparameters
-tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character embedding (default: 128)")
+tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_string("filter_sizes", "10,100,200", "Comma-separated filter sizes (default: '3,4,5')")
-tf.flags.DEFINE_integer("num_filters", 256, "Number of filters per filter size (default: 128)")
+tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.2, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_float("learning_rate", 1e-4, "learning rate")
