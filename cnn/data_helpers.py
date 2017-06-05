@@ -77,7 +77,7 @@ def load_data_labels(data_files, labels_files, test_data_files, test_labels_file
     y_train = lb.fit_transform(labels.who)
     y_test = lb.transform(test_labels.who)
 
-    # document length取90%的分位数
+    # document length
     document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in data])
     document_length = np.int64(document_length_df.quantile(0.8))
     vocab_processor = learn.preprocessing.VocabularyProcessor(document_length)
