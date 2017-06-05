@@ -136,7 +136,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--batch_size',
-        default=128,
+        default=10,
         help='batch size',
         action='store_true'
     )
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--learning_rate',
-        default=1e-4,
+        default=1e-2,
         help='learning rate',
         action='store_true'
     )
