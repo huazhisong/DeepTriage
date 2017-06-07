@@ -57,12 +57,11 @@ def rnn_model(features, target, vocabulary_size, embedding_size, n_class):
         tf.contrib.framework.get_global_step(),
         optimizer='Adam',
         learning_rate=FLAGS.learning_rate)
-
-    return ({
-                'classes': tf.argmax(logits, 1),
-                'probabilities': tf.nn.softmax(logits, name="softmax_tensor")
-            }, loss, train_op)
-
+    predictions = {
+        'classes': tf.argmax(logits, 1),
+        'probabilities': tf.nn.softmax(logits, name="softmax_tensor")
+    }
+    return model_fn_lib.ModelFnOps(predictions=predictions, loss=loss, train_op=train_op)
 
 def main(unused_argv):
     # Prepare training and testing data
