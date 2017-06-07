@@ -75,7 +75,7 @@ def main(unused_argv):
                                                 model_dir=FLAGS.log_dir)
     # config=tf.contrib.learn.RunConfig(save_checkpoints_secs=1e3)))
     # Train and evaluate
-    # y_train = (y for y in y_train)
+    y_train = (y for y in y_train)
     # Set up logging for predictions
     # Log the values in the "Softmax" tensor with label "probabilities"
     tensors_to_log = {"probabilities": "softmax_tensor"}
@@ -83,7 +83,7 @@ def main(unused_argv):
         tensors=tensors_to_log, every_n_iter=50)
     classifier.fit(x_train, y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps, monitors=[logging_hook])
     # , monitors=[validation_monitor])
-    # y_test = (y for y in y_test)
+    y_test = (y for y in y_test)
     # Configure the accuracy metric for evaluation
     metrics = {
         "accuracy":
