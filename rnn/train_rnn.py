@@ -96,9 +96,9 @@ def main(unused_argv):
 
     n_class = y_train.shape[1]
     # Build model
-    classifier = learn.SKCompat(learn.Estimator(model_fn=lambda features, target: rnn_model(features, target, len(
+    classifier = learn.Estimator(model_fn=lambda features, target: rnn_model(features, target, len(
                   vocabulary_processor.vocabulary_), FLAGS.embedding_size, n_class),
-                                                model_dir=FLAGS.log_dir))
+                                                model_dir=FLAGS.log_dir)
     # config=tf.contrib.learn.RunConfig(save_checkpoints_secs=1e3)))
     # Train and evaluate
     y_train = (y for y in y_train)
@@ -112,12 +112,12 @@ def main(unused_argv):
     # , monitors=[validation_monitor])
     y_test = (y for y in y_test)
     # Configure the accuracy metric for evaluation
-    # metrics = {
-    #     "accuracy":
-    #         learn.MetricSpec(
-    #             metric_fn=tf.metrics.accuracy, prediction_key="classes"),
-    # }
-    score = classifier.score(x_test, y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps)
+    metrics = {
+        "accuracy":
+            learn.MetricSpec(
+                metric_fn=tf.metrics.accuracy, prediction_key="classes"),
+    }
+    score = classifier.evaluate(x_test, y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps, metrics=metrics)
     print(score)
 
 
