@@ -25,7 +25,7 @@ FLAGS = None
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
-def rnn_model(features, target, vocabulary_size, embedding_size, n_class):
+def rnn_model(features, target, mode, vocabulary_size, embedding_size, n_class):
     """RNN model to predict from sequence of words to a class."""
     # Convert indexes of words into embeddings.
     # This creates embeddings matrix of [n_words, EMBEDDING_SIZE] and then
@@ -61,7 +61,7 @@ def rnn_model(features, target, vocabulary_size, embedding_size, n_class):
         'classes': tf.argmax(logits, 1),
         'probabilities': tf.nn.softmax(logits, name="softmax_tensor")
     }
-    return model_fn_lib.ModelFnOps(predictions=predictions, loss=loss, train_op=train_op)
+    return model_fn_lib.ModelFnOps(mode=mode, predictions=predictions, loss=loss, train_op=train_op)
 
 def main(unused_argv):
     # Prepare training and testing data
@@ -95,7 +95,7 @@ def main(unused_argv):
 
     n_class = y_train.shape[1]
     # Build model
-    classifier = learn.Estimator(model_fn=lambda features, target: rnn_model(features, target, len(
+    classifier = learn.Estimator(model_fn=lambda features, target, mode: rnn_model(features, target, mode, len(
                   vocabulary_processor.vocabulary_), FLAGS.embedding_size, n_class),
                                                 model_dir=FLAGS.log_dir)
     # config=tf.contrib.learn.RunConfig(save_checkpoints_secs=1e3)))
