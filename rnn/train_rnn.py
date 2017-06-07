@@ -107,7 +107,7 @@ def main(unused_argv):
     logging_hook = tf.train.LoggingTensorHook(
         tensors=tensors_to_log, every_n_iter=50)
 
-    classifier.fit(x_train, y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps, monitors=[validation_monitor])
+    classifier.fit(x_train, iter(y_train), batch_size=FLAGS.batch_size, steps=FLAGS.train_steps, monitors=[validation_monitor])
     # , monitors=[validation_monitor])
     y_test = (y for y in y_test)
     # Configure the accuracy metric for evaluation
@@ -116,7 +116,7 @@ def main(unused_argv):
             learn.MetricSpec(
                 metric_fn=tf.metrics.accuracy, prediction_key="classes"),
     }
-    score = classifier.evaluate(x_test, y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps, metrics=metrics)
+    score = classifier.evaluate(x_test, iter(y_test), batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps, metrics=metrics)
     print(score)
 
 
