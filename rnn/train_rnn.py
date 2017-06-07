@@ -116,7 +116,7 @@ def main(unused_argv):
             learn.MetricSpec(
                 metric_fn=tf.metrics.accuracy, prediction_key="classes"),
     }
-    score = classifier.evaluate(x_test, iter(y_test), batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps, metrics=metrics)
+    score = classifier.evaluate(x_test, iter(y_test), batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps)
     print(score)
 
 
