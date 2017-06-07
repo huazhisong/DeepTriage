@@ -68,30 +68,30 @@ def main(unused_argv):
     x_train, y_train, x_test, y_test, vocabulary_processor = \
         data_helper.load_data_labels(FLAGS.data_dir + FLAGS.data_file, FLAGS.dev_sample_percentage)
 
-    # # 验证矩阵
-    # validation_metrics = {
-    #     "accuracy":
-    #         tf.contrib.learn.MetricSpec(
-    #             metric_fn=tf.contrib.metrics.streaming_accuracy,
-    #             prediction_key="classes"),
-    #     "precision":
-    #         tf.contrib.learn.MetricSpec(
-    #             metric_fn=tf.contrib.metrics.streaming_precision,
-    #             prediction_key="classes"),
-    #     "recall":
-    #         tf.contrib.learn.MetricSpec(
-    #             metric_fn=tf.contrib.metrics.streaming_recall,
-    #             prediction_key="classes")
-    # }
-    #
-    # validation_monitor = tf.contrib.learn.monitors.ValidationMonitor(
-    #     x_test,
-    #     y_test,
-    #     every_n_steps=1000,
-    #     metrics=validation_metrics,
-    #     early_stopping_metric="loss",
-    #     early_stopping_metric_minimize=True,
-    #     early_stopping_rounds=2000)
+    # 验证矩阵
+    validation_metrics = {
+        "accuracy":
+            tf.contrib.learn.MetricSpec(
+                metric_fn=tf.contrib.metrics.streaming_accuracy,
+                prediction_key="classes"),
+        "precision":
+            tf.contrib.learn.MetricSpec(
+                metric_fn=tf.contrib.metrics.streaming_precision,
+                prediction_key="classes"),
+        "recall":
+            tf.contrib.learn.MetricSpec(
+                metric_fn=tf.contrib.metrics.streaming_recall,
+                prediction_key="classes")
+    }
+
+    validation_monitor = tf.contrib.learn.monitors.ValidationMonitor(
+        x_test,
+        y_test,
+        every_n_steps=1000,
+        metrics=validation_metrics,
+        early_stopping_metric="loss",
+        early_stopping_metric_minimize=True,
+        early_stopping_rounds=2000)
 
     n_class = y_train.shape[1]
     # Build model
@@ -107,7 +107,7 @@ def main(unused_argv):
     logging_hook = tf.train.LoggingTensorHook(
         tensors=tensors_to_log, every_n_iter=50)
 
-    classifier.fit(x_train, y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps, monitors=[logging_hook])
+    classifier.fit(x_train, y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps, monitors=[validation_monitor])
     # , monitors=[validation_monitor])
     y_test = (y for y in y_test)
     # Configure the accuracy metric for evaluation
