@@ -98,7 +98,7 @@ def main(unused_argv):
     # Build model
     classifier = learn.SKCompat(learn.Estimator(model_fn=lambda features, target: rnn_model(features, target, len(
                   vocabulary_processor.vocabulary_), FLAGS.embedding_size, n_class),
-                                                model_dir="/tmp/rnn_model"))
+                                                model_dir=FLAGS.log_dir))
     # config=tf.contrib.learn.RunConfig(save_checkpoints_secs=1e3)))
     # Train and evaluate
     y_train = (y for y in y_train)
@@ -133,6 +133,12 @@ if __name__ == '__main__':
         '--data_file',
         default="sort-text-id.csv",
         help='data path',
+        action='store_true'
+    )
+    parser.add_argument(
+        '--log_dir',
+        default="../rnn_model",
+        help='log direction',
         action='store_true'
     )
     parser.add_argument(
