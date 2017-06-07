@@ -17,6 +17,7 @@ import argparse
 import sys
 import tensorflow as tf
 from tensorflow.contrib import learn
+from tensorflow.contrib.learn.python.learn.estimators import model_fn as model_fn_lib
 import data_helper
 
 FLAGS = None
@@ -58,8 +59,8 @@ def rnn_model(features, target, vocabulary_size, embedding_size, n_class):
         learning_rate=FLAGS.learning_rate)
 
     return ({
-                'class': tf.argmax(logits, 1),
-                'prob': tf.nn.softmax(logits)
+                'classes': tf.argmax(logits, 1),
+                'probabilities': tf.nn.softmax(logits, name="softmax_tensor")
             }, loss, train_op)
 
 
@@ -101,10 +102,22 @@ def main(unused_argv):
     # config=tf.contrib.learn.RunConfig(save_checkpoints_secs=1e3)))
     # Train and evaluate
     y_train = (y for y in y_train)
-    classifier.fit(x_train, y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps)
+    # Set up logging for predictions
+    # Log the values in the "Softmax" tensor with label "probabilities"
+    tensors_to_log = {"probabilities": "softmax_tensor"}
+    logging_hook = tf.train.LoggingTensorHook(
+        tensors=tensors_to_log, every_n_iter=50)
+
+    classifier.fit(x_train, y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps, monitors=[logging_hook])
     # , monitors=[validation_monitor])
     y_test = (y for y in y_test)
-    score = classifier.score(x_test, y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps)
+    # Configure the accuracy metric for evaluation
+    metrics = {
+        "accuracy":
+            learn.MetricSpec(
+                metric_fn=tf.metrics.accuracy, prediction_key="classes"),
+    }
+    score = classifier.score(x_test, y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps, metrics=metrics)
     print(score)
 
 
