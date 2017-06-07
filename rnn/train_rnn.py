@@ -88,10 +88,7 @@ def main(unused_argv):
         x_test,
         y_test,
         every_n_steps=1000,
-        metrics=validation_metrics,
-        early_stopping_metric="loss",
-        early_stopping_metric_minimize=True,
-        early_stopping_rounds=2000)
+        metrics=validation_metrics)
 
     n_class = y_train.shape[1]
     # Build model
