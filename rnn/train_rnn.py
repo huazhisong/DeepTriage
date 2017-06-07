@@ -112,12 +112,12 @@ def main(unused_argv):
     # , monitors=[validation_monitor])
     y_test = (y for y in y_test)
     # Configure the accuracy metric for evaluation
-    metrics = {
-        "accuracy":
-            learn.MetricSpec(
-                metric_fn=tf.metrics.accuracy, prediction_key="classes"),
-    }
-    score = classifier.score(x_test, y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps, metrics=metrics)
+    # metrics = {
+    #     "accuracy":
+    #         learn.MetricSpec(
+    #             metric_fn=tf.metrics.accuracy, prediction_key="classes"),
+    # }
+    score = classifier.score(x_test, y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps)
     print(score)
 
 
