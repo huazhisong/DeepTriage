@@ -171,11 +171,11 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch,
                 cnn.dropout_keep_prob: 1.0
             }
-            step, summaries, loss, accuracy = sess.run(
-                [global_step, dev_summary_op, cnn.loss, cnn.accuracy],
+            step, summaries, loss, accuracy, correct = sess.run(
+                [global_step, dev_summary_op, cnn.loss, cnn.accuracy, cnn.correct],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
+            print("{}: step {}, loss {:g}, acc {:g}, correct {:g}".format(time_str, step, loss, accuracy, correct))
             if writer:
                 writer.add_summary(summaries, step)
 
