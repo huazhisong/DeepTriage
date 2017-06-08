@@ -107,7 +107,7 @@ def load_data_labels(data_file, dev_sample_percentage = 0.2):
     vocabulary_processor = learn.preprocessing.VocabularyProcessor(document_length)
     tf.summary.scalar("document_len", document_length)
     x_train = np.array(list(vocabulary_processor.fit_transform(x_train)))
-    x_dev = np.array(list(vocabulary_processor.transform(x_dev)), dtype=np.int32)
+    x_dev = np.array(list(vocabulary_processor.transform(x_dev)), dtype=np.float32)
 
     # 处理label
     lb = LabelBinarizer()
