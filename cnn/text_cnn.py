@@ -86,4 +86,4 @@ class TextCNN(object):
         # Evaluation
         with tf.name_scope("correct"):
             correct = tf.nn.in_top_k(tf.cast(self.scores, tf.float32), tf.argmax(self.input_y, 1), 3)
-            self.correct = tf.reduce_sum(tf.cast(correct, tf.int32))
+            self.correct = tf.reduce_mean(tf.cast(correct, tf.int32))
