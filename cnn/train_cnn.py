@@ -155,11 +155,11 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch,
                 cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
             }
-            _, step, summaries, loss, accuracy, correct = sess.run(
-                [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy, cnn.correct],
+            _, step, summaries, loss, accuracy, precision = sess.run(
+                [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy, cnn.precision],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}, correct {:g}".format(time_str, step, loss, accuracy, correct))
+            print("{}: step {}, loss {:g}, acc {:g}, correct {:g}".format(time_str, step, loss, accuracy, precision))
             train_summary_writer.add_summary(summaries, step)
 
 
@@ -172,11 +172,11 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch,
                 cnn.dropout_keep_prob: 1.0
             }
-            step, summaries, loss, accuracy, correct = sess.run(
-                [global_step, dev_summary_op, cnn.loss, cnn.accuracy, cnn.correct],
+            step, summaries, loss, accuracy, precision = sess.run(
+                [global_step, dev_summary_op, cnn.loss, cnn.accuracy, cnn.precision],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}, correct {:g}".format(time_str, step, loss, accuracy, correct))
+            print("{}: step {}, loss {:g}, acc {:g}, correct {:g}".format(time_str, step, loss, accuracy, precision))
             if writer:
                 writer.add_summary(summaries, step)
 
