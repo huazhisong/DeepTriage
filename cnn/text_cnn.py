@@ -85,4 +85,4 @@ class TextCNN(object):
 
         # Precision
         with tf.name_scope("precision"):
-            self.precision = tf.contrib.metrics.streaming_sparse_precision_at_k(self.scores, tf.arg_max(self.input_y, 1), 3)
+            self.precision, _ = tf.contrib.metrics.streaming_sparse_precision_at_k(self.scores, tf.arg_max(self.input_y, 1), 3)
