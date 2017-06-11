@@ -120,7 +120,7 @@ def load_data_labels(data_file, dev_sample_percentage = 0.2):
     return x_train, y_train, x_dev, y_dev, vocabulary_processor
 
 
-def batch_iter(data, batch_size, num_epochs, shuffle=True):
+def batch_iter(data, batch_size, num_epochs=1, shuffle=True):
     """
     Generates a batch iterator for a dataset.
     """
