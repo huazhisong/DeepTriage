@@ -120,14 +120,15 @@ with tf.Graph().as_default():
         # Summaries for loss and accuracy
         loss_summary = tf.summary.scalar("loss", cnn.loss)
         acc_summary = tf.summary.scalar("accuracy", cnn.accuracy)
-
+        precision_summary = tf.summary.scalar("precision", cnn.precision)
+        recall_summary = tf.summary.scalar("recall", cnn.recall)
         # Train Summaries
-        train_summary_op = tf.summary.merge([loss_summary, acc_summary, grad_summaries_merged])
+        train_summary_op = tf.summary.merge([loss_summary, acc_summary, grad_summaries_merged, precision_summary, recall_summary])
         train_summary_dir = os.path.join(out_dir, "summaries", "train")
         train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
 
         # Dev summaries
-        dev_summary_op = tf.summary.merge([loss_summary, acc_summary])
+        dev_summary_op = tf.summary.merge([loss_summary, acc_summary, precision_summary, precision_summary, recall_summary])
         dev_summary_dir = os.path.join(out_dir, "summaries", "dev")
         dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
 
@@ -154,12 +155,11 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch,
                 cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
             }
-            _, step, summaries, loss, accuracy, precision = sess.run(
-                [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy, cnn.precision],
+            _, step, summaries, loss, accuracy, precision, recall = sess.run(
+                [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy, cnn.precision, cnn.recall],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
-            print(precision)
+            print("{}: step {}, loss {:g}, acc {:g}, pre {:g}, rcl {:g}".format(time_str, step, loss, accuracy, precision, recall))
             train_summary_writer.add_summary(summaries, step)
 
 
@@ -172,11 +172,11 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch,
                 cnn.dropout_keep_prob: 1.0
             }
-            step, summaries, loss, accuracy = sess.run(
-                [global_step, dev_summary_op, cnn.loss, cnn.accuracy],
+            step, summaries, loss, accuracy, precision, recall = sess.run(
+                [global_step, dev_summary_op, cnn.loss, cnn.accuracy, cnn.precision, cnn.recall],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
+            print("{}: step {}, loss {:g}, acc {:g}, prc {:g}, rcl {:g}".format(time_str, step, loss, accuracy, precision, recall))
             if writer:
                 writer.add_summary(summaries, step)
 
