@@ -86,5 +86,5 @@ class TextCNN(object):
         # Evaluation
         with tf.name_scope("precision"):
             precision_pre = tf.contrib.metrics.streaming_sparse_precision_at_k(tf.cast(self.scores, tf.float32),
-                                                                                   tf.argmax(self.input_y, 1), 3)
+                                                                               tf.argmax(self.input_y, 1), 3)
             self.precision = tf.reduce_mean(tf.cast(precision_pre, "float"), name="precision")
