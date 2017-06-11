@@ -120,7 +120,7 @@ with tf.Graph().as_default():
         # Summaries for loss and accuracy
         loss_summary = tf.summary.scalar("loss", cnn.loss)
         acc_summary = tf.summary.scalar("accuracy", cnn.accuracy)
-        correct_summary = tf.summary.scalar("correct", cnn.correct)
+        correct_summary = tf.summary.scalar("precision", cnn.precision)
 
         # Train Summaries
         train_summary_op = tf.summary.merge([loss_summary, acc_summary, grad_summaries_merged,  correct_summary])
