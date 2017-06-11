@@ -84,6 +84,9 @@ class TextCNN(object):
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
 
         # Evaluation
-        with tf.name_scope("correct"):
-            correct_pre = tf.nn.in_top_k(tf.cast(self.scores, tf.float32), tf.argmax(self.input_y, 1), 3)
-            self.correct = tf.reduce_mean(tf.cast(correct_pre, "float"), name="correct")
+        with tf.name_scope("precision"):
+            precision_pre = tf.contrib.metrics.streaming_sparse_precision_at_k(tf.cast(self.scores, tf.float32),
+                                                                               tf.argmax(self.input_y, 1), 3)
+            self.precision = tf.reduce_mean(tf.cast(precision_pre, "float"), name="precision")
+
+
