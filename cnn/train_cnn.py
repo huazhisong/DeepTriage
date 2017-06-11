@@ -143,6 +143,7 @@ with tf.Graph().as_default():
 
         # Initialize all variables
         sess.run(tf.global_variables_initializer())
+        tf.initialize_local_variables().run()
 
 
         def train_step(x_batch, y_batch):
