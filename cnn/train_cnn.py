@@ -123,12 +123,13 @@ with tf.Graph().as_default():
         precision_summary = tf.summary.scalar("precision", cnn.precision)
         recall_summary = tf.summary.scalar("recall", cnn.recall)
         # Train Summaries
-        train_summary_op = tf.summary.merge([loss_summary, acc_summary, grad_summaries_merged, precision_summary, recall_summary])
+        train_summary_op = tf.summary.merge(
+            [loss_summary, acc_summary, grad_summaries_merged, precision_summary, recall_summary])
         train_summary_dir = os.path.join(out_dir, "summaries", "train")
         train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
 
         # Dev summaries
-        dev_summary_op = tf.summary.merge([loss_summary, acc_summary, precision_summary, precision_summary, recall_summary])
+        dev_summary_op = tf.summary.merge([loss_summary, acc_summary, precision_summary, recall_summary])
         dev_summary_dir = os.path.join(out_dir, "summaries", "dev")
         dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
 
@@ -172,11 +173,12 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch,
                 cnn.dropout_keep_prob: 1.0
             }
-            step, summaries, loss, accuracy, precision, recall = sess.run(
-                [global_step, dev_summary_op, cnn.loss, cnn.accuracy, cnn.precision, cnn.recall],
-                feed_dict)
+            _, _, step, summaries, loss, accuracy, precision, recall = \
+                sess.run([cnn.precision_op, cnn.recall_op, global_step, dev_summary_op,
+                          cnn.loss, cnn.accuracy, cnn.precision, cnn.recall], feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}, prc {:g}, rcl {:g}".format(time_str, step, loss, accuracy, precision, recall))
+            print("{}: step {}, loss {:g}, acc {:g}, prc {:g}, rcl {:g}".format(time_str, step,
+                                                                                loss, accuracy, precision, recall))
             if writer:
                 writer.add_summary(summaries, step)
 
