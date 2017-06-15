@@ -110,9 +110,24 @@ def load_data_labels(data_file, dev_sample_percentage = 0.2):
     x_dev = np.array(list(vocabulary_processor.transform(x_dev)))
 
     # 处理label
-    lb = LabelBinarizer()
-    y_train = lb.fit_transform(y_train)
-    y_dev = lb.transform(y_dev)
+    # lb = LabelBinarizer()
+    # y_train = lb.fit_transform(y_train)
+    # y_dev = lb.transform(y_dev)
+    # 构造label词典
+    label_dict = dict()
+    label_set = set(y_train)
+    for label in label_set:
+        label_dict[label] = len(label_dict)
+    # 构建label train data
+    y_train = [label_dict[label] for label in y_train]
+    # 构建label test data
+    y_test = []
+    label_dict_len = len(label_dict)
+    for label in y_dev:
+        idx = label_dict[label] if label in label_dict else label_dict_len
+        label_dict_len = label_dict_len + 1
+        y_test.append(idx)
+    y_dev = y_test
 
     print("Vocabulary Size: {:d}".format(len(vocabulary_processor.vocabulary_)))
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
@@ -120,7 +135,7 @@ def load_data_labels(data_file, dev_sample_percentage = 0.2):
     return x_train, y_train, x_dev, y_dev, vocabulary_processor
 
 
-def batch_iter(data, batch_size, num_epochs=1, shuffle=True):
+def batch_iter(data, batch_size, num_epochs=1, shuffle=False):
     """
     Generates a batch iterator for a dataset.
     """
