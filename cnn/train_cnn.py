@@ -1,8 +1,10 @@
 #! /usr/bin/env python
 
+from gensim.models.word2vec import KeyedVectors
 import tensorflow as tf
-import numpy as np
 import os
+import numpy as np
+from six.moves import xrange
 import time
 import datetime
 import data_helpers
@@ -16,10 +18,11 @@ tf.flags.DEFINE_float("dev_sample_percentage", .2, "Percentage of the training d
 tf.flags.DEFINE_string("data_file", "../../data/data_by_ocean/eclipse/sort-text-id.csv",
                        "Data source for the  data.")
 tf.flags.DEFINE_string("label_file", "../../data/data_by_ocean/eclipse/fixer.csv", "Data source for the labels data.")
+tf.flags.DEFINE_string("embedding_file", "../../data/data_by_ocean/GoogleNews-vectors-negative300.bin", "embedding file")
 
 # Model Hyperparameters
-tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)")
-tf.flags.DEFINE_string("filter_sizes", "2,4,8,10,20,40,90,120,180,200", "Comma-separated filter sizes (default: '3,4,5')")
+tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character embedding (default: 128)")
+tf.flags.DEFINE_string("filter_sizes", "1,2", "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer("num_filters", 10, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.4, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.3, "L2 regularization lambda (default: 0.0)")
@@ -33,6 +36,7 @@ tf.flags.DEFINE_integer("num_checkpoints", 1000, "Number of checkpoints to store
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
+tf.flags.DEFINE_string("embedding_type", "static", "static,train,static_train (default: 'static')")
 
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
@@ -49,8 +53,12 @@ print("Loading data...")
 # ocean's training data
 # x, y, vocab_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.label_file)
 
+# get pre-trained embedding
+word_vectors = KeyedVectors.load_word2vec_format(FLAGS.embedding_file, binary=True)
+
 # xiaowan training data
-x_train, y_train, x_dev, y_dev, vocabulary_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.dev_sample_percentage)
+x_train, y_train, x_dev, y_dev, vocabulary_processor = \
+    data_helpers.load_data_labels(FLAGS.data_file, FLAGS.dev_sample_percentage)
 # mine training data
 # train_data = ['../../data/data_by_ocean/eclipse/raw/0_summary_description.csv',
 #               '../../data/data_by_ocean/eclipse/raw/1_summary_description.csv',
@@ -94,6 +102,7 @@ with tf.Graph().as_default():
             embedding_size=FLAGS.embedding_dim,
             filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
             num_filters=FLAGS.num_filters,
+            embedding_type=FLAGS.embedding_type,
             l2_reg_lambda=FLAGS.l2_reg_lambda)
 
         # Define Training procedure
@@ -112,9 +121,9 @@ with tf.Graph().as_default():
         grad_summaries_merged = tf.summary.merge(grad_summaries)
 
         # Output directory for models and summaries
-        # timestamp = str(int(time.time()))
-        # out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
-        out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs/cnn_model"))
+        timestamp = str(int(time.time()))
+        out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
+        # out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs/cnn_model"))
         print("Writing to {}\n".format(out_dir))
 
         # Summaries for loss and accuracy
@@ -143,9 +152,23 @@ with tf.Graph().as_default():
         # Write vocabulary
         vocabulary_processor.save(os.path.join(out_dir, "vocab"))
 
+        initW = None
+        if FLAGS.embedding_type in ['static', 'static_train']:
+            # initial matrix with random uniform
+            initW = np.random.uniform(-0.25, 0.25, (len(vocabulary_processor.vocabulary_), FLAGS.embedding_dim))
+            # load any vectors from the word2vec
+            print("Load word2vec file {}\n".format(FLAGS.embedding_file))
+            word_vectors = KeyedVectors.load_word2vec_format(FLAGS.embedding_file, binary=True)
+            for word in word_vectors.vocab:
+                idx = vocabulary_processor.vocabulary_.get(word)
+                if idx != 0:
+                    initW[idx] = word_vectors[word]
+
         # Initialize all variables
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
+        if FLAGS.embedding_type in ['static', 'static_train']:
+            sess.run(cnn.W.assign(initW))
 
         def train_step(x_batch, y_batch):
             """
