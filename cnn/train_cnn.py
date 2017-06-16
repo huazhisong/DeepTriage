@@ -57,9 +57,6 @@ print("Loading data...")
 # ocean's training data
 # x, y, vocab_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.label_file)
 
-# get pre-trained embedding
-word_vectors = KeyedVectors.load_word2vec_format(FLAGS.embedding_file, binary=True)
-
 # xiaowan training data
 x_train, y_train, x_dev, y_dev, vocabulary_processor = \
     data_helpers.load_data_labels(FLAGS.data_file, FLAGS.dev_sample_percentage)
@@ -101,9 +98,10 @@ with tf.Graph().as_default():
     with sess.as_default():
         cnn = text_cnn.TextCNN(
             sequence_length=x_train.shape[1],
-            num_classes=y_train.shape[1],
+            num_classes=len(set(y_train)),
             vocab_size=len(vocabulary_processor.vocabulary_),
             embedding_size=FLAGS.embedding_dim,
+            batch_size=FLAGS.batch_size,
             filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
             num_filters=FLAGS.num_filters,
             embedding_type=FLAGS.embedding_type,
