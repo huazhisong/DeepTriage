@@ -105,7 +105,6 @@ def load_data_labels(data_file, dev_sample_percentage = 0.2):
     document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in x_train])
     document_length = np.int64(document_length_df.quantile(0.8))
     vocabulary_processor = learn.preprocessing.VocabularyProcessor(document_length)
-    tf.summary.scalar("document_len", document_length)
     x_train = np.array(list(vocabulary_processor.fit_transform(x_train)), dtype=np.float32)
     x_dev = np.array(list(vocabulary_processor.transform(x_dev)))
 
@@ -128,7 +127,7 @@ def load_data_labels(data_file, dev_sample_percentage = 0.2):
         label_dict_len = label_dict_len + 1
         y_test.append(idx)
     y_dev = y_test
-
+    print("Document length: {:d}".format(document_length))
     print("Vocabulary Size: {:d}".format(len(vocabulary_processor.vocabulary_)))
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
 
