@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+
 class TextCNN(object):
     """
     A CNN for text classification.
@@ -8,10 +9,11 @@ class TextCNN(object):
 
     def __init__(
             self, sequence_length, num_classes, vocab_size,
-            embedding_size, filter_sizes, num_filters, embedding_type=None, l2_reg_lambda=0.0):
+            embedding_size, num_filters, filter_sizes=list(), top_k=3,
+            embedding_type=None, l2_reg_lambda=0.0):
         # Placeholders for input, output and dropout
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
-        self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
+        self.input_y = tf.placeholder(tf.float32, [None, 1], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
 
         # Keeping track of l2 regularization loss (optional)
@@ -66,7 +68,7 @@ class TextCNN(object):
 
         # Combine all the pooled features
         num_filters_total = num_filters * len(filter_sizes)
-        self.h_pool = tf.concat(pooled_outputs, 3)
+        self.h_pool = tf.concat(pooled_outputs, len(filter_sizes))
         self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
 
         # Add dropout
@@ -82,25 +84,20 @@ class TextCNN(object):
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
             l2_loss += tf.nn.l2_loss(W)
             l2_loss += tf.nn.l2_loss(b)
-            self.scores = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
-            self.predictions = tf.argmax(self.scores, 1, name="predictions")
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
 
         # CalculateMean cross-entropy loss
         with tf.name_scope("loss"):
-            losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, labels=self.input_y)
+            losses = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.logits, labels=self.input_y)
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
 
         # Accuracy
         with tf.name_scope("accuracy"):
-            correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
-            self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
+            self.accuracy = tf.reduce_mean(tf.nn.in_top_k(self.logits, self.input_y, top_k))
 
-        # Precision
-        with tf.name_scope("precision"):
+        # Evaluation
+        with tf.name_scope("evaluation"):
             self.precision_op, self.precision = tf.contrib.metrics.streaming_sparse_precision_at_k(
-                self.scores, tf.arg_max(self.input_y, 1), 3, name="precision")
-
-        # Precision
-        with tf.name_scope("recall"):
+                self.logits, self.input_y, top_k, name="precision")
             self.recall_op, self.recall = tf.contrib.metrics.streaming_sparse_recall_at_k(
-                self.scores, tf.arg_max(self.input_y, 1), 3, name="recall")
+                self.logits, self.input_y, top_k, name="recall")

@@ -21,7 +21,7 @@ tf.flags.DEFINE_string("label_file", "./data/eclipse/fixer.csv", "Data source fo
 
 # Eval Parameters
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
-tf.flags.DEFINE_string("checkpoint_dir", "", "Checkpoint directory from training run")
+tf.flags.DEFINE_string("checkpoint_dir", "./runs/cnn_model/checkpoints", "Checkpoint directory from training run")
 tf.flags.DEFINE_boolean("eval_train", False, "Evaluate on all training data")
 
 # Misc Parameters
