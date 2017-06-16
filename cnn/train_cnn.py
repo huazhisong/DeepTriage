@@ -14,7 +14,7 @@ import text_cnn
 # ==================================================
 
 # Data loading params
-tf.flags.DEFINE_float("dev_sample_percentage", .2, "Percentage of the training data to use for validation")
+tf.flags.DEFINE_float("dev_sample_percentage",0.2, "Percentage of the training data to use for validation")
 tf.flags.DEFINE_string("data_file", "../../data/data_by_ocean/eclipse/sort-text-id.csv",
                        "Data source for the  data.")
 tf.flags.DEFINE_string("embedding_file", "../../data/data_by_ocean/GoogleNews-vectors-negative300.bin", "embedding file")
@@ -22,15 +22,16 @@ tf.flags.DEFINE_string("--log_dir", "./runs/cnn_model", "log dir")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character embedding (default: 128)")
-tf.flags.DEFINE_string("filter_sizes", "1,2", "Comma-separated filter sizes (default: '3,4,5')")
-tf.flags.DEFINE_integer("num_filters", 10, "Number of filters per filter size (default: 128)")
-tf.flags.DEFINE_float("dropout_keep_prob", 0.4, "Dropout keep probability (default: 0.5)")
+tf.flags.DEFINE_string("filter_sizes", "2,4,8,10,20,40,90,120,180,200",
+                       "Comma-separated filter sizes (default: '3,4,5')")
+tf.flags.DEFINE_integer("num_filters", 100, "Number of filters per filter size (default: 128)")
+tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.3, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_float("learning_rate", 1e-4, "learning rate")
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 1024, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 2000, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 10000, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("batch_size", 1000, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("evaluate_every", 1000, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 1000, "Number of checkpoints to store (default: 5)")
 # Misc Parameters
@@ -140,7 +141,7 @@ with tf.Graph().as_default():
 
         # Checkpoint directory. TensorFlow assumes this directory already exists so we need to create it
         checkpoint_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "checkpoints"))
-        checkpoint_prefix = os.path.join(checkpoint_dir, "model")
+        checkpoint_prefix = os.path.join(checkpoint_dir, "model.ckpt")
         if not os.path.exists(checkpoint_dir):
             os.makedirs(checkpoint_dir)
         saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)

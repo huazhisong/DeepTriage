@@ -13,7 +13,7 @@ class TextCNN(object):
             embedding_type=None, l2_reg_lambda=0.0):
         # Placeholders for input, output and dropout
         self.input_x = tf.placeholder(tf.int32, [batch_size, sequence_length], name="input_x")
-        self.input_y = tf.placeholder(tf.int32, [batch_size], name="input_y")
+        self.input_y = tf.placeholder(tf.int64, [batch_size], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
 
         # Keeping track of l2 regularization loss (optional)
@@ -93,7 +93,7 @@ class TextCNN(object):
 
         # Accuracy
         with tf.name_scope("accuracy"):
-            self.accuracy = tf.reduce_mean(tf.nn.in_top_k(self.logits, self.input_y, top_k))
+            self.accuracy = tf.reduce_mean(tf.cast(tf.nn.in_top_k(self.logits, self.input_y, top_k), tf.int32))
 
         # Evaluation
         with tf.name_scope("evaluation"):
