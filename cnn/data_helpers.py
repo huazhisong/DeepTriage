@@ -113,11 +113,11 @@ def load_data_labels(data_file, dev_sample_percentage=0.2):
     # y_train = lb.fit_transform(y_train)
     # y_dev = lb.transform(y_dev)
     label_processor = learn.preprocessing.VocabularyProcessor(1)
-    y_train = label_processor.fit_transform(y_train)
-    y_dev = label_processor.transform(y_dev)
+    y_train = np.array(list(label_processor.fit_transform(y_train)))
+    y_dev = np.array(list(label_processor.transform(y_dev)))
 
-    y_train = np.array(list(tf.expand_dims(y_train, -1)))
-    y_dev = np.array(list(tf.expand_dims(y_dev, -1)))
+    y_train = tf.expand_dims(y_train, -1)
+    y_dev = tf.expand_dims(y_dev, -1)
 
     print("Document length: %d" % document_length)
     print("Vocabulary Size: {:d}".format(len(vocabulary_processor.vocabulary_)))
