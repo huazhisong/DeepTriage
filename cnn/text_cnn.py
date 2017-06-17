@@ -12,9 +12,10 @@ class TextCNN(object):
             embedding_size, num_filters, batch_size, filter_sizes=list(), top_k=3,
             embedding_type=None, l2_reg_lambda=0.0):
         # Placeholders for input, output and dropout
-        self.input_x = tf.placeholder(tf.int32, [batch_size, sequence_length], name="input_x")
-        self.input_y = tf.placeholder(tf.int64, [batch_size], name="input_y")
+        self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
+        self.input_y = tf.placeholder(tf.int64, [None, 1], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
+        self.input_y = tf.squeeze(self.input_y)
 
         # Keeping track of l2 regularization loss (optional)
         l2_loss = tf.constant(0.0)
@@ -40,7 +41,6 @@ class TextCNN(object):
                 print("\n**\nWrong embedding type!\n**\n")
 
             self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
-
         # Create a convolution + maxpool layer for each filter size
         pooled_outputs = []
         for i, filter_size in enumerate(filter_sizes):
@@ -93,7 +93,8 @@ class TextCNN(object):
 
         # Accuracy
         with tf.name_scope("accuracy"):
-            self.accuracy = tf.reduce_mean(tf.cast(tf.nn.in_top_k(self.logits, self.input_y, top_k), tf.int32))
+            correct = tf.nn.in_top_k(self.logits, self.input_y, top_k)
+            self.accuracy = tf.reduce_mean(tf.cast(correct, tf.int32))
 
         # Evaluation
         with tf.name_scope("evaluation"):

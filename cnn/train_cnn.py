@@ -14,7 +14,7 @@ import text_cnn
 # ==================================================
 
 # Data loading params
-tf.flags.DEFINE_float("dev_sample_percentage",0.2, "Percentage of the training data to use for validation")
+tf.flags.DEFINE_float("dev_sample_percentage", 0.2, "Percentage of the training data to use for validation")
 tf.flags.DEFINE_string("data_file", "../../data/data_by_ocean/eclipse/sort-text-id.csv",
                        "Data source for the  data.")
 tf.flags.DEFINE_string("embedding_file", "../../data/data_by_ocean/GoogleNews-vectors-negative300.bin", "embedding file")
@@ -22,10 +22,10 @@ tf.flags.DEFINE_string("--log_dir", "./runs/cnn_model", "log dir")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character embedding (default: 128)")
-tf.flags.DEFINE_string("filter_sizes", "2,4,8,10,20,40,90,120,180,200",
+tf.flags.DEFINE_string("filter_sizes", "1,2",
                        "Comma-separated filter sizes (default: '3,4,5')")
-tf.flags.DEFINE_integer("num_filters", 100, "Number of filters per filter size (default: 128)")
-tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
+tf.flags.DEFINE_integer("num_filters", 10, "Number of filters per filter size (default: 128)")
+tf.flags.DEFINE_float("dropout_keep_prob", 0.8, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.3, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_float("learning_rate", 1e-4, "learning rate")
 # Training parameters
@@ -34,6 +34,7 @@ tf.flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 
 tf.flags.DEFINE_integer("evaluate_every", 1000, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 1000, "Number of checkpoints to store (default: 5)")
+tf.flags.DEFINE_integer("top_k", 3, "evaluation top k")
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
@@ -102,9 +103,10 @@ with tf.Graph().as_default():
             num_classes=len(set(y_train)),
             vocab_size=len(vocabulary_processor.vocabulary_),
             embedding_size=FLAGS.embedding_dim,
+            num_filters=FLAGS.num_filters,
             batch_size=FLAGS.batch_size,
             filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
-            num_filters=FLAGS.num_filters,
+            top_k=FLAGS.top_k,
             embedding_type=FLAGS.embedding_type,
             l2_reg_lambda=FLAGS.l2_reg_lambda)
 

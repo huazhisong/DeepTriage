@@ -86,7 +86,7 @@ def load_data_labels(data_files, labels_files, test_data_files, test_labels_file
     return x_train, y_train, x_test, y_test, vocab_processor
 
 
-def load_data_labels(data_file, dev_sample_percentage = 0.2):
+def load_data_labels(data_file, dev_sample_percentage=0.2):
     """
     Loads MR polarity data from files, splits the data into words and generates labels.
     Returns split sentences and labels.
@@ -105,29 +105,21 @@ def load_data_labels(data_file, dev_sample_percentage = 0.2):
     document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in x_train])
     document_length = np.int64(document_length_df.quantile(0.8))
     vocabulary_processor = learn.preprocessing.VocabularyProcessor(document_length)
-    x_train = np.array(list(vocabulary_processor.fit_transform(x_train)), dtype=np.float32)
+    x_train = np.array(list(vocabulary_processor.fit_transform(x_train)))
     x_dev = np.array(list(vocabulary_processor.transform(x_dev)))
 
     # 处理label
     # lb = LabelBinarizer()
     # y_train = lb.fit_transform(y_train)
     # y_dev = lb.transform(y_dev)
-    # 构造label词典
-    label_dict = dict()
-    label_set = set(y_train)
-    for label in label_set:
-        label_dict[label] = len(label_dict)
-    # 构建label train data
-    y_train = [label_dict[label] for label in y_train]
-    # 构建label test data
-    y_test = []
-    label_dict_len = len(label_dict)
-    for label in y_dev:
-        idx = label_dict[label] if label in label_dict else label_dict_len
-        label_dict_len = label_dict_len + 1
-        y_test.append(idx)
-    y_dev = y_test
-    print("Document length: {:d}".format(document_length))
+    label_processor = learn.preprocessing.VocabularyProcessor(1)
+    y_train = label_processor.fit_transform(y_train)
+    y_dev = label_processor.transform(y_dev)
+
+    y_train = np.array(list(tf.expand_dims(y_train, -1)))
+    y_dev = np.array(list(tf.expand_dims(y_dev, -1)))
+
+    print("Document length: %d" % document_length)
     print("Vocabulary Size: {:d}".format(len(vocabulary_processor.vocabulary_)))
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
 
@@ -150,11 +142,32 @@ def batch_iter(data, batch_size, num_epochs=1, shuffle=False):
             shuffled_data = data
         for batch_num in range(num_batches_per_epoch):
             start_index = batch_num * batch_size
-            end_index = (batch_num + 1) * batch_size
-            if end_index <= data_size:
-                yield shuffled_data[start_index: end_index]
+            end_index = min((batch_num + 1) * batch_size, data_size)
+            yield shuffled_data[start_index: end_index]
 
 
-if __name__ == "__main__":
-    x, y, vocab_processor = load_data_labels("../../data/data_by_ocean/eclipse/textForLDA_final.csv",
-                                             "../../data/data_by_ocean/eclipse/fixer.csv")
+def read_bug(filename_queue):
+    """Reads and parse examples form bug data files"""
+
+    reader = tf.TextLineReader()
+    key, value = reader.read(filename_queue)
+
+    record_defaults = [[-1], [-1]]
+    text, fixer = tf.decode_csv(
+        value, record_defaults=record_defaults)
+    return text, fixer
+
+
+def generate_bug_and_label_batch(filenames, min_after_dequeue, batch_size, num_epochs=None, shuffle=False):
+    filename_queue = tf.train.string_input_producer(
+        filenames, num_epochs=num_epochs, shuffle=False)
+    example, label = read_bug(filename_queue)
+    capacity = min_after_dequeue + 3 * batch_size
+    if shuffle:
+        example_batch, label_batch = tf.train.shuffle_batch(
+            [example, label], batch_size=batch_size, capacity=capacity,
+            min_after_dequeue=min_after_dequeue)
+    else:
+        example_batch, label_batch = tf.train.batch(
+            [example, label], batch_size=batch_size, capacity=capacity)
+    return example_batch, label_batch
