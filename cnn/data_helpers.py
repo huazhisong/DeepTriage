@@ -109,29 +109,15 @@ def load_data_labels(data_file, dev_sample_percentage=0.2):
     x_dev = np.array(list(vocabulary_processor.transform(x_dev)))
 
     # 处理label
-    # lb = LabelBinarizer()
-    # y_train = lb.fit_transform(y_train)
-    # y_dev = lb.transform(y_dev)
-    label_set = set(y_train)
-    label_dict = dict()
-    for label in label_set:
-        label_dict[label] = len(label_dict)
-    y_train = [label_dict[label] for label in y_train]
-    label_dict_len = len(label_set)
-    num_classes = label_dict_len
-    y_test = []
-    for label in y_dev:
-        idx = label_dict[label] if label in label_dict else label_dict_len
-        label_dict_len += 1
-        y_test.append(idx)
-    y_dev = y_test
+    lb = LabelBinarizer()
+    y_train = lb.fit_transform(y_train)
+    y_dev = lb.transform(y_dev)
+
     print("Document length: %d" % document_length)
     print("Vocabulary Size: {:d}".format(len(vocabulary_processor.vocabulary_)))
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
 
-    # y_train = np.expand_dims(y_train, -1)
-    # y_dev = np.expand_dims(y_dev, -1)
-    return x_train, y_train, x_dev, y_dev, vocabulary_processor, num_classes
+    return x_train, y_train, x_dev, y_dev, vocabulary_processor
 
 
 def batch_iter(data, batch_size, num_epochs=1, shuffle=False):
