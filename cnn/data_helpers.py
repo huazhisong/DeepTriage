@@ -118,6 +118,7 @@ def load_data_labels(data_file, dev_sample_percentage=0.2):
         label_dict[label] = len(label_dict)
     y_train = [label_dict[label] for label in y_train]
     label_dict_len = len(label_set)
+    num_classes = label_dict_len
     y_test = []
     for label in y_dev:
         idx = label_dict[label] if label in label_dict else label_dict_len
@@ -130,7 +131,7 @@ def load_data_labels(data_file, dev_sample_percentage=0.2):
 
     y_train = np.expand_dims(y_train, -1)
     y_dev = np.expand_dims(y_dev, -1)
-    return x_train, y_train, x_dev, y_dev, vocabulary_processor
+    return x_train, y_train, x_dev, y_dev, vocabulary_processor, num_classes
 
 
 def batch_iter(data, batch_size, num_epochs=1, shuffle=False):

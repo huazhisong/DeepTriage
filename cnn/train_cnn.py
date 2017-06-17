@@ -60,7 +60,7 @@ print("Loading data...")
 # x, y, vocab_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.label_file)
 
 # xiaowan training data
-x_train, y_train, x_dev, y_dev, vocabulary_processor = \
+x_train, y_train, x_dev, y_dev, vocabulary_processor, num_classes = \
     data_helpers.load_data_labels(FLAGS.data_file, FLAGS.dev_sample_percentage)
 # mine training data
 # train_data = ['../../data/data_by_ocean/eclipse/raw/0_summary_description.csv',
@@ -100,7 +100,7 @@ with tf.Graph().as_default():
     with sess.as_default():
         cnn = text_cnn.TextCNN(
             sequence_length=x_train.shape[1],
-            num_classes=len(set(y_train)),
+            num_classes=num_classes,
             vocab_size=len(vocabulary_processor.vocabulary_),
             embedding_size=FLAGS.embedding_dim,
             num_filters=FLAGS.num_filters,
