@@ -94,7 +94,7 @@ class TextCNN(object):
         # Accuracy
         with tf.name_scope("accuracy"):
             correct = tf.nn.in_top_k(self.logits, label, top_k)
-            self.accuracy = tf.reduce_mean(tf.cast(correct, tf.int32))
+            self.accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
 
         # Evaluation
         with tf.name_scope("evaluation"):
