@@ -90,15 +90,15 @@ class TextCNN(object):
             losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=self.input_y)
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
 
-        self.input_y = tf.arg_max(self.input_y, 1)
+        label = tf.arg_max(self.input_y, 1)
         # Accuracy
         with tf.name_scope("accuracy"):
-            correct = tf.nn.in_top_k(self.logits, self.input_y, top_k)
+            correct = tf.nn.in_top_k(self.logits, label, top_k)
             self.accuracy = tf.reduce_mean(tf.cast(correct, tf.int32))
 
         # Evaluation
         with tf.name_scope("evaluation"):
             self.precision_op, self.precision = tf.contrib.metrics.streaming_sparse_precision_at_k(
-                self.logits, self.input_y, top_k, name="precision")
+                self.logits, label, top_k, name="precision")
             self.recall_op, self.recall = tf.contrib.metrics.streaming_sparse_recall_at_k(
-                self.logits, self.input_y, top_k, name="recall")
+                self.logits, label, top_k, name="recall")
