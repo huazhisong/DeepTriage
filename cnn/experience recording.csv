@@ -6,10 +6,10 @@
 2017年6月几号
 设计：修改filter sizes,加入正则化
 dev_sample_percentage：0.2
-embedding_dim：128
+embedding_dim：300
 filter_sizes：2,4,8,10,20,40,90,120,180,200
 num_filters：10
-dropout_keep_prob：0.4
+dropout_keep_prob：0.8
 l2_reg_lambda：0.3
 learning_rate: 1e-4
 batch_size：1024
@@ -18,6 +18,8 @@ evaluate_every：1000
 checkpoint_every：1000
 num_checkpoints：1000
 pre_embedding： False
+top_k：3
+embedding_type：train
 试验结果
 
 ====================================================================
