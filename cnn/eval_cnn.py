@@ -33,26 +33,14 @@ for attr, value in sorted(FLAGS.__flags.items()):
 print("")
 
 # CHANGE THIS: Load data. Load your own data here
-if FLAGS.eval_train:
-    # x_raw, y_test = data_helpers.load_data_and_labels(FLAGS.positive_data_file, FLAGS.negative_data_file)
-    # x_raw, y_test = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.label_file)
-    # y_test = np.argmax(y_test, axis=1)
-    _, _, x_raw, y_test, _ = \
+_, _, x_test, y_test, _ = \
         data_helpers.load_data_labels(FLAGS.data_file, FLAGS.dev_sample_percentage)
-else:
-    x_raw = ["a masterpiece four years in the making", "everything is off."]
-    y_test = [1, 0]
-
-# Map data into vocabulary
-vocab_path = os.path.join(FLAGS.log_dir, "vocab")
-vocab_processor = learn.preprocessing.VocabularyProcessor.restore(vocab_path)
-x_test = np.array(list(vocab_processor.transform(x_raw)))
 
 print("\nEvaluating...\n")
 
 # Evaluation
 # ==================================================
-checkpoint_file = tf.train.latest_checkpoint(os.path.join(FLAGS.log_dir, "checkpoints"))
+checkpoint_file = tf.train.latest_checkpoint(os.path.abspath(os.path.join(FLAGS.log_dir, "checkpoints")))
 graph = tf.Graph()
 with graph.as_default() as g:
     session_conf = tf.ConfigProto(
@@ -61,53 +49,51 @@ with graph.as_default() as g:
     sess = tf.Session(config=session_conf)
     with sess.as_default():
         # Load the saved meta graph and restore variables
-        ckpt = tf.train.get_checkpoint_state(checkpoint_file)
-        if ckpt and ckpt.model_checkpoint_path:
-            saver = tf.train.import_meta_graph("{}.meta".format(checkpoint_file))
-            saver.restore(sess, ckpt.model_checkpoint_path)
-            # Assuming model_checkpoint_path looks something like:
-            #   /my-favorite-path/cifar10_train/model.ckpt-0,
-            # extract global_step from it.
-            global_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
+        saver = tf.train.import_meta_graph("{}.meta".format(checkpoint_file))
+        saver.restore(sess, checkpoint_file)
 
-            # Get the placeholders from the graph by name
-            input_x = graph.get_operation_by_name("input_x").outputs[0]
-            input_y = graph.get_operation_by_name("input_y").outputs[0]
-            dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
+        # Get the placeholders from the graph by name
+        input_x = graph.get_operation_by_name("input_x").outputs[0]
+        input_y = graph.get_operation_by_name("input_y").outputs[0]
+        dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
 
-            # Tensors we want to evaluate
-            precision_op, precision = graph.get_operation_by_name("evaluation/precision").outputs[0]
-            recall_op, recall = graph.get_operation_by_name("evaluation/recall").outputs[0]
+        # Tensors we want to evaluate
+        precision_op = graph.get_operation_by_name("evaluation/precision/update").outputs[0]
+        precision = graph.get_operation_by_name("evaluation/precision").outputs[0]
+        recall_op = graph.get_operation_by_name("evaluation/recall/update").outputs[0]
+        recall = graph.get_operation_by_name("evaluation/recall").outputs[0]
 
-            summary_op = tf.summary.merge_all()
-            dev_summary_dir = os.path.join(FLAGS.log_dir, "summaries", "evaluations")
-            summary_writer = tf.summary.FileWriter(dev_summary_dir, g)
-            # Generate batches for one epoch
-            batches = data_helpers.batch_iter(list(x_test), FLAGS.batch_size, 1, shuffle=False)
+        precision_summary = tf.summary.scalar("precision", precision)
+        recall_summary = tf.summary.scalar("recall", recall)
+        summary_op = tf.summary.merge([precision_summary, recall_summary])
+        dev_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "evaluations"))
+        summary_writer = tf.summary.FileWriter(dev_summary_dir, g)
+        # Generate batches for one epoch
+        batches = data_helpers.batch_iter(list(zip(x_test, y_test)), FLAGS.batch_size, 1, shuffle=False)
 
-            # Collect the predictions here
-            all_predictions = []
-            precision_total = 0.0
-            recall_total = 0.0
-            for x_test_batch in batches:
-                _, _, summary, precision_b, recall_b = sess.run(
-                    [summary_op, precision_op, recall_op, precision, recall],
-                    {input_x: x_test_batch, dropout_keep_prob: 1.0})
-                summary_writer.add_summary(summary)
+        # Collect the predictions here
+        all_predictions = []
+        precision_total = 0.0
+        recall_total = 0.0
+        for batch in batches:
+            x_test_batch, y_test_batch = zip(*batch)
+            _, _, summary, precision_b, recall_b = sess.run(
+                [summary_op, precision_op, recall_op, precision, recall],
+                {input_x: x_test_batch, input_y: y_test, dropout_keep_prob: 1.0})
+            summary_writer.add_summary(summary)
 
-            # Print accuracy if y_test is defined
-            if y_test is not None:
-                print("Total number of test examples: {}".format(len(y_test)))
-                print("Precision: {:g}".format(precision_total))
-                print("Recall: {:g}".format(recall_total))
+        # Print accuracy if y_test is defined
+        if y_test is not None:
+            print("Total number of test examples: {}".format(len(y_test)))
+            print("Precision: {:g}".format(precision_total))
+            print("Recall: {:g}".format(recall_total))
 
-            # Save the evaluation to a csv
-            predictions_human_readable = np.column_stack((np.array(x_raw), all_predictions))
-            out_path = os.path.join(FLAGS.log_dir, "summaries", "evaluations", "prediction.csv")
-            print("Saving evaluation to {0}".format(out_path))
-            with open(out_path, 'w') as f:
-                csv.writer(f).writerows(predictions_human_readable)
-        else:
-            print('No checkpoint file found')
+        # Save the evaluation to a csv
+        predictions_human_readable = np.column_stack((np.array(x_test), all_predictions))
+        out_path = os.path.join(FLAGS.log_dir, "summaries", "evaluations", "prediction.csv")
+        print("Saving evaluation to {0}".format(out_path))
+        with open(out_path, 'w') as f:
+            csv.writer(f).writerows(predictions_human_readable)
+
 
 

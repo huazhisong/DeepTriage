@@ -18,7 +18,7 @@ tf.flags.DEFINE_float("dev_sample_percentage", 0.2, "Percentage of the training 
 tf.flags.DEFINE_string("data_file", "../../data/data_by_ocean/eclipse/sort-text-id.csv",
                        "Data source for the  data.")
 tf.flags.DEFINE_string("embedding_file", "../../data/data_by_ocean/GoogleNews-vectors-negative300.bin", "embedding file")
-tf.flags.DEFINE_string("--log_dir", "./runs/cnn_model", "log dir")
+tf.flags.DEFINE_string("log_dir", "./runs/cnn_model", "log dir")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character embedding (default: 128)")
@@ -33,7 +33,7 @@ tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 1000, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
-tf.flags.DEFINE_integer("num_checkpoints", 1000, "Number of checkpoints to store (default: 5)")
+tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 tf.flags.DEFINE_integer("top_k", 3, "evaluation top k")
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -133,20 +133,20 @@ with tf.Graph().as_default():
         # Train Summaries
         train_summary_op = tf.summary.merge(
             [loss_summary, acc_summary, grad_summaries_merged, precision_summary, recall_summary])
-        train_summary_dir = os.path.join(FLAGS.log_dir, "summaries", "train")
+        train_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "train"))
         train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
 
         # Dev summaries
         dev_summary_op = tf.summary.merge([loss_summary, acc_summary, precision_summary, recall_summary])
-        dev_summary_dir = os.path.join(FLAGS.log_dir, "summaries", "dev")
+        dev_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "dev"))
         dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
 
         # Checkpoint directory. TensorFlow assumes this directory already exists so we need to create it
         checkpoint_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "checkpoints"))
-        checkpoint_prefix = os.path.join(checkpoint_dir, "model.ckpt")
+        checkpoint_prefix = os.path.join(checkpoint_dir, "model")
         if not os.path.exists(checkpoint_dir):
             os.makedirs(checkpoint_dir)
-        saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
+        saver = tf.train.Saver([tf.global_variables(), tf.local_variables()], max_to_keep=FLAGS.num_checkpoints)
 
         # Write vocabulary
         vocabulary_processor.save(os.path.join(FLAGS.log_dir, "vocab"))
