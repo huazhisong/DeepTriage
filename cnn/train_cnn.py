@@ -146,7 +146,7 @@ with tf.Graph().as_default():
         checkpoint_prefix = os.path.join(checkpoint_dir, "model")
         if not os.path.exists(checkpoint_dir):
             os.makedirs(checkpoint_dir)
-        saver = tf.train.Saver([tf.global_variables(), tf.local_variables()], max_to_keep=FLAGS.num_checkpoints)
+        saver = tf.train.Saver(max_to_keep=FLAGS.num_checkpoints)
 
         # Write vocabulary
         vocabulary_processor.save(os.path.join(FLAGS.log_dir, "vocab"))
