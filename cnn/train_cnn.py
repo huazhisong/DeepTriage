@@ -38,7 +38,7 @@ tf.flags.DEFINE_integer("top_k", 3, "evaluation top k")
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
-tf.flags.DEFINE_string("embedding_type", "static", "static,train,static_train (default: 'static')")
+tf.flags.DEFINE_string("embedding_type", "static_train", "static,train,static_train (default: 'static')")
 
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
@@ -136,20 +136,25 @@ with tf.Graph().as_default():
         train_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "train"))
         train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
 
-        # Dev summaries
+        # validation summaries
         dev_summary_op = tf.summary.merge([loss_summary, acc_summary, precision_summary, recall_summary])
-        dev_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "dev"))
+        dev_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "validation"))
         dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
+
+        # test summaries
+        test_summary_op = tf.summary.merge([loss_summary, acc_summary, precision_summary, recall_summary])
+        test_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "test"))
+        test_summary_writer = tf.summary.FileWriter(test_summary_dir, sess.graph)
 
         # Checkpoint directory. TensorFlow assumes this directory already exists so we need to create it
         checkpoint_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "checkpoints"))
         checkpoint_prefix = os.path.join(checkpoint_dir, "model")
         if not os.path.exists(checkpoint_dir):
             os.makedirs(checkpoint_dir)
-        saver = tf.train.Saver(max_to_keep=FLAGS.num_checkpoints)
+        saver = tf.train.Saver(tf.global_variables().extend(tf.local_variables()), max_to_keep=FLAGS.num_checkpoints)
 
         # Write vocabulary
-        vocabulary_processor.save(os.path.join(FLAGS.log_dir, "vocab"))
+        # vocabulary_processor.save(os.path.join(FLAGS.log_dir, "vocab"))
 
         initW = None
         if FLAGS.embedding_type in ['static', 'static_train']:
@@ -188,7 +193,7 @@ with tf.Graph().as_default():
 
         def dev_step(x_batch, y_batch, writer=None):
             """
-            Evaluates model on a dev set
+            validate model on a dev set
             """
             feed_dict = {
                 cnn.input_x: x_batch,
@@ -203,6 +208,25 @@ with tf.Graph().as_default():
                                                                                 loss, accuracy, precision, recall))
             if writer:
                 writer.add_summary(summaries, step)
+
+        def test_step(x_batch, y_batch, step, writer=None):
+            """
+             Evaluates model on a dev set
+            """
+            feed_dict = {
+                cnn.input_x: x_batch,
+                cnn.input_y: y_batch,
+                cnn.dropout_keep_prob: 1.0
+            }
+            _, _, summaries, loss, correct, precision, recall = \
+                sess.run([cnn.precision_op, cnn.recall_op, test_summary_op,
+                          cnn.loss, cnn.correct, cnn.precision, cnn.recall], feed_dict)
+            time_str = datetime.datetime.now().isoformat()
+            print("{}: step {}, loss {:g}, acc {:g}, prc {:g}, rcl {:g}".format(time_str, step,
+                                                                                loss, correct, precision, recall))
+            if writer:
+                writer.add_summary(summaries, step)
+            return correct
 
         # Generate batches
         batches = data_helpers.batch_iter(
@@ -219,9 +243,22 @@ with tf.Graph().as_default():
 
                 for dev_batch in dev_batches:
                     x_dev_batch, y_dev_batch = zip(*dev_batch)
-                    dev_step(x_dev_batch, y_dev_batch,writer=dev_summary_writer)
-                print("")
+                    dev_step(x_dev_batch, y_dev_batch, writer=dev_summary_writer)
+                print("\n")
                 # dev_step(x_dev, y_dev, writer=dev_summary_writr)
             if current_step % FLAGS.checkpoint_every == 0:
                 path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                 print("Saved model checkpoint to {}\n".format(path))
+
+        print("\n Testing:")
+        dev_batches = data_helpers.batch_iter(list(zip(x_dev, y_dev)), FLAGS.batch_size)
+        step = 0
+        true_correct = 0
+        for dev_batch in dev_batches:
+            x_dev_batch, y_dev_batch = zip(*dev_batch)
+            correct = test_step(x_dev_batch, y_dev_batch, step, writer=dev_summary_writer)
+            true_correct += np.sum(correct)
+            step += 1
+            print("\n")
+        print('%s: total accuracy @ 3 = %.3f' %
+              (datetime.datetime.now().isoformat(), true_correct/(FLAGS.batch_size*len(dev_batches))))

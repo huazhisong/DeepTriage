@@ -58,9 +58,10 @@ with graph.as_default() as g:
         dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
 
         # Tensors we want to evaluate
-        precision_op = graph.get_operation_by_name("evaluation/precision/update").outputs[0]
+        # precision_op = graph.get_operation_by_name("evaluation/precision/update")
+        precision_op = graph.get_tensor_by_name("evaluation/precision/update")
         precision = graph.get_operation_by_name("evaluation/precision").outputs[0]
-        recall_op = graph.get_operation_by_name("evaluation/recall/update").outputs[0]
+        recall_op = graph.get_tensor_by_name("evaluation/recall/update")
         recall = graph.get_operation_by_name("evaluation/recall").outputs[0]
 
         precision_summary = tf.summary.scalar("precision", precision)
