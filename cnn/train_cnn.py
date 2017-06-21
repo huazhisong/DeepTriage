@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-
+from tensorflow.contrib.tensorboard.plugins import projector
 from gensim.models.word2vec import KeyedVectors
 import tensorflow as tf
 import os
@@ -17,7 +17,8 @@ import text_cnn
 tf.flags.DEFINE_float("dev_sample_percentage", 0.2, "Percentage of the training data to use for validation")
 tf.flags.DEFINE_string("data_file", "../../data/data_by_ocean/eclipse/sort-text-id.csv",
                        "Data source for the  data.")
-tf.flags.DEFINE_string("embedding_file", "../../data/data_by_ocean/GoogleNews-vectors-negative300.bin", "embedding file")
+tf.flags.DEFINE_string("embedding_file", "../../data/data_by_ocean/GoogleNews-vectors-negative300.bin",
+                       "embedding file")
 tf.flags.DEFINE_string("log_dir", "./runs/cnn_model", "log dir")
 
 # Model Hyperparameters
@@ -174,6 +175,7 @@ with tf.Graph().as_default():
         if FLAGS.embedding_type in ['static', 'static_train']:
             sess.run(cnn.W.assign(initW))
 
+
         def train_step(x_batch, y_batch):
             """
             A single training step
@@ -187,7 +189,9 @@ with tf.Graph().as_default():
                 [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy, cnn.precision, cnn.recall],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}, pre {:g}, rcl {:g}".format(time_str, step, loss, accuracy, precision, recall))
+            print(
+                "{}: step {}, loss {:g}, acc {:g}, pre {:g}, rcl {:g}".format(time_str, step, loss, accuracy, precision,
+                                                                              recall))
             train_summary_writer.add_summary(summaries, step)
 
 
@@ -209,6 +213,7 @@ with tf.Graph().as_default():
             if writer:
                 writer.add_summary(summaries, step)
 
+
         def test_step(x_batch, y_batch, step, writer=None):
             """
              Evaluates model on a dev set
@@ -227,6 +232,7 @@ with tf.Graph().as_default():
             if writer:
                 writer.add_summary(summaries, step)
             return correct
+
 
         # Generate batches
         batches = data_helpers.batch_iter(
@@ -256,9 +262,16 @@ with tf.Graph().as_default():
         true_correct = 0
         for dev_batch in dev_batches:
             x_dev_batch, y_dev_batch = zip(*dev_batch)
-            correct = test_step(x_dev_batch, y_dev_batch, step, writer=dev_summary_writer)
+            correct = test_step(x_dev_batch, y_dev_batch, step, writer=test_summary_writer)
             true_correct += np.sum(correct)
             step += 1
             print("\n")
         print('%s: total accuracy @ 3 = %.3f' %
-              (datetime.datetime.now().isoformat(), true_correct/(FLAGS.batch_size*len(dev_batches))))
+              (datetime.datetime.now().isoformat(), true_correct / (FLAGS.batch_size * len(dev_batches))))
+
+        # projector embedding
+        config = projector.ProjectorConfig()
+        embedding = config.embeddings.add()
+        embedding.tensor_name = cnn.W.name
+        embedding.metadata_path = os.path.abspath(os.path.join(FLAGS.log_dir, 'metadata.tsv'))
+        projector.visualize_embeddings(test_summary_writer, config)
