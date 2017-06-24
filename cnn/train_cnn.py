@@ -28,7 +28,7 @@ tf.flags.DEFINE_string("filter_sizes", "2,4,8,10,20,40,90,120,180,200",
 tf.flags.DEFINE_integer("num_filters", 10, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.8, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.3, "L2 regularization lambda (default: 0.0)")
-tf.flags.DEFINE_float("learning_rate", 1e-4, "learning rate")
+tf.flags.DEFINE_float("init_learning_rate", 1e-4, "learning rate")
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 200)")
@@ -113,7 +113,18 @@ with tf.Graph().as_default():
 
         # Define Training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
-        optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
+
+        # add decay learning rate
+        num_batches_per_epoch = int((len(x_train) - 1) / FLAGS.batch_size) + 1
+        decay_steps = int(num_batches_per_epoch * FLAGS.num_epochs * 0.1)
+        # Decay the learning rate exponentially based on the number of steps.
+        lr = tf.train.exponential_decay(FLAGS.init_learning_rate,
+                                        global_step,
+                                        decay_steps,
+                                        0.1,
+                                        staircase=True)
+
+        optimizer = tf.train.AdamOptimizer(lr)
         grads_and_vars = optimizer.compute_gradients(cnn.loss)
         train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
         # Keep track of gradient values and sparsity (optional)
