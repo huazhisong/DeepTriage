@@ -234,15 +234,15 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch,
                 cnn.dropout_keep_prob: 1.0
             }
-            _, _, summaries, loss, correct, precision, recall = \
+            _, _, summaries, loss, crr, precision, recall = \
                 sess.run([cnn.precision_op, cnn.recall_op, test_summary_op,
                           cnn.loss, cnn.correct, cnn.precision, cnn.recall], feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}, prc {:g}, rcl {:g}".format(time_str, step,
-                                                                                loss, correct, precision, recall))
+            print("{}: step {}, loss {:g}, crr {}, prc {:g}, rcl {:g}".
+                  format(time_str, step, loss, crr, precision, recall))
             if writer:
                 writer.add_summary(summaries, step)
-            return correct
+            return crr
 
 
         # Generate batches
@@ -267,6 +267,13 @@ with tf.Graph().as_default():
                 path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                 print("Saved model checkpoint to {}\n".format(path))
 
+        # projector embedding
+        config = projector.ProjectorConfig()
+        embedding = config.embeddings.add()
+        embedding.tensor_name = cnn.W.name
+        embedding.metadata_path = os.path.abspath(os.path.join(FLAGS.log_dir, 'metadata.tsv'))
+        projector.visualize_embeddings(test_summary_writer, config)
+
         print("\n Testing:")
         dev_batches = data_helpers.batch_iter(list(zip(x_dev, y_dev)), FLAGS.batch_size)
         step = 0
@@ -280,9 +287,4 @@ with tf.Graph().as_default():
         print('%s: total accuracy @ 3 = %.3f' %
               (datetime.datetime.now().isoformat(), true_correct / (FLAGS.batch_size * len(dev_batches))))
 
-        # projector embedding
-        config = projector.ProjectorConfig()
-        embedding = config.embeddings.add()
-        embedding.tensor_name = cnn.W.name
-        embedding.metadata_path = os.path.abspath(os.path.join(FLAGS.log_dir, 'metadata.tsv'))
-        projector.visualize_embeddings(test_summary_writer, config)
+

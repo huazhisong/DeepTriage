@@ -59,9 +59,9 @@ with graph.as_default() as g:
 
         # Tensors we want to evaluate
         # precision_op = graph.get_operation_by_name("evaluation/precision/update")
-        precision_op = graph.get_tensor_by_name("evaluation/precision/update")
+        precision_op = graph.get_operation_by_name("evaluation/precision/update").outputs[0]
         precision = graph.get_operation_by_name("evaluation/precision").outputs[0]
-        recall_op = graph.get_tensor_by_name("evaluation/recall/update")
+        recall_op = graph.get_operation_by_name("evaluation/recall/update").outputs[0]
         recall = graph.get_operation_by_name("evaluation/recall").outputs[0]
 
         precision_summary = tf.summary.scalar("precision", precision)
@@ -70,7 +70,7 @@ with graph.as_default() as g:
         dev_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "evaluations"))
         summary_writer = tf.summary.FileWriter(dev_summary_dir, g)
         # Generate batches for one epoch
-        batches = data_helpers.batch_iter(list(zip(x_test, y_test)), FLAGS.batch_size, 1, shuffle=False)
+        batches = data_helpers.batch_iter(list(zip(x_test, y_test)), FLAGS.batch_size, 1, shuffle=True)
 
         # Collect the predictions here
         all_predictions = []
