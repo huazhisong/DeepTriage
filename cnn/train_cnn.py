@@ -179,12 +179,11 @@ with tf.Graph().as_default():
                 idx = vocabulary_processor.vocabulary_.get(word)
                 if idx != 0:
                     initW[idx] = word_vectors[word]
+            sess.run(cnn.W.assign(initW))
 
         # Initialize all variables
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
-        if FLAGS.embedding_type in ['static', 'static_train']:
-            sess.run(cnn.W.assign(initW))
 
 
         def train_step(x_batch, y_batch):
@@ -239,10 +238,10 @@ with tf.Graph().as_default():
                           cnn.loss, cnn.correct, cnn.precision, cnn.recall], feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, crr {}, prc {:g}, rcl {:g}".
-                  format(time_str, step, loss, crr, precision, recall))
+                  format(time_str, step, loss, np.sum(crr), precision, recall))
             if writer:
                 writer.add_summary(summaries, step)
-            return crr
+            return np.sum(crr)
 
 
         # Generate batches

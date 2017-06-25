@@ -3,8 +3,30 @@
 源自论文：Convolutional Neural Networks for Sentence Classification
 博客：http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/
 ====================================================================
-2017年6月21号
-设计：使用static embedding训练
+2017年6月25号
+设计：使用static训练,将数据打乱后训练，并增加了learning rate decay
+dev_sample_percentage：0.2
+embedding_dim：300
+filter_sizes：2,4,8,10,20,40,90,120,180,200
+num_filters：10
+dropout_keep_prob：0.8
+l2_reg_lambda：0.3
+learning_rate: 1e-4
+batch_size：1024
+num_epochs：2000
+evaluate_every：1000
+checkpoint_every：1000
+num_checkpoints：1000
+top_k：3
+embedding_type：static
+试验结果
+训练时长：18h25m53s
+accuracy@3：训练集:0.810,测试集：0.5800
+precision@3：训练集：0.1792，测试集：0.1792
+recall@3：训练集：0.5377,测试集：0.5376
+====================================================================
+2017年6月24号
+设计：使用static_train训练
 dev_sample_percentage：0.2
 embedding_dim：300
 filter_sizes：2,4,8,10,20,40,90,120,180,200
@@ -20,10 +42,32 @@ num_checkpoints：1000
 top_k：3
 embedding_type：static_train
 试验结果
+训练时长：2d20h48m40s
+accuracy@3：训练集:0.9706,测试集：0.6700
+precision@3：训练集：0.2527，测试集：0.2526
+recall@3：训练集：0.7580,测试集：0.7578
+====================================================================
+2017年6月21号
+设计：使用static embedding训练
+dev_sample_percentage：0.2
+embedding_dim：300
+filter_sizes：2,4,8,10,20,40,90,120,180,200
+num_filters：10
+dropout_keep_prob：0.8
+l2_reg_lambda：0.3
+learning_rate: 1e-4
+batch_size：1024
+num_epochs：2000
+evaluate_every：1000
+checkpoint_every：1000
+num_checkpoints：1000
+top_k：3
+embedding_type：static
+试验结果
 训练时长：18h32m10s
 accuracy@3：训练集:0.7591,测试集：0.3652
 precision@3：训练集：0.1781，测试集：0.1781
-recall@3：训练集：0.5343,测试集：0,5342
+recall@3：训练集：0.5343,测试集：0.5342
 ====================================================================
 2017年6月20号
 设计：加入accuracy@3，recall@3，precision@3

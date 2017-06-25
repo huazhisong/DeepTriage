@@ -47,6 +47,7 @@ with graph.as_default() as g:
         allow_soft_placement=FLAGS.allow_soft_placement,
         log_device_placement=FLAGS.log_device_placement)
     sess = tf.Session(config=session_conf)
+
     with sess.as_default():
         # Load the saved meta graph and restore variables
         saver = tf.train.import_meta_graph("{}.meta".format(checkpoint_file))
@@ -71,6 +72,7 @@ with graph.as_default() as g:
         summary_writer = tf.summary.FileWriter(dev_summary_dir, g)
         # Generate batches for one epoch
         batches = data_helpers.batch_iter(list(zip(x_test, y_test)), FLAGS.batch_size, 1, shuffle=True)
+        sess.run(tf.local_variables_initializer())
 
         # Collect the predictions here
         all_predictions = []
