@@ -283,7 +283,8 @@ with tf.Graph().as_default():
             true_correct += np.sum(correct)
             step += 1
             print("\n")
+        numer_iter = int((len(y_dev) - 1) / FLAGS.batch_size) + 1
         print('%s: total accuracy @ 3 = %.3f' %
-              (datetime.datetime.now().isoformat(), true_correct / (FLAGS.batch_size * len(dev_batches))))
+              (datetime.datetime.now().isoformat(), true_correct / (numer_iter * FLAGS.batch_size)))
 
 
