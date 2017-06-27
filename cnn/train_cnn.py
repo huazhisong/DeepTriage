@@ -142,6 +142,7 @@ with tf.Graph().as_default():
         acc_summary = tf.summary.scalar("accuracy", cnn.accuracy)
         precision_summary = tf.summary.scalar("precision", cnn.precision)
         recall_summary = tf.summary.scalar("recall", cnn.recall)
+        correct_summary = tf.summary.scalar("correct", cnn.correct)
         # Train Summaries
         train_summary_op = tf.summary.merge(
             [loss_summary, acc_summary, grad_summaries_merged, precision_summary, recall_summary])
@@ -154,7 +155,7 @@ with tf.Graph().as_default():
         dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
 
         # test summaries
-        test_summary_op = tf.summary.merge([loss_summary, acc_summary, precision_summary, recall_summary])
+        test_summary_op = tf.summary.merge([loss_summary, correct_summary, precision_summary, recall_summary])
         test_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "test"))
         test_summary_writer = tf.summary.FileWriter(test_summary_dir, sess.graph)
 
@@ -266,12 +267,15 @@ with tf.Graph().as_default():
                 path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                 print("Saved model checkpoint to {}\n".format(path))
 
+        # embedding summaries
+        summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir))
+        summary_writer = tf.summary.FileWriter(test_summary_dir)
         # projector embedding
         config = projector.ProjectorConfig()
         embedding = config.embeddings.add()
         embedding.tensor_name = cnn.W.name
         embedding.metadata_path = os.path.abspath(os.path.join(FLAGS.log_dir, 'metadata.tsv'))
-        projector.visualize_embeddings(test_summary_writer, config)
+        projector.visualize_embeddings(summary_writer, config)
 
         print("\n Testing:")
         dev_batches = data_helpers.batch_iter(list(zip(x_dev, y_dev)), FLAGS.batch_size)

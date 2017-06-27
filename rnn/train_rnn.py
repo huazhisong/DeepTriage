@@ -81,18 +81,20 @@ def main(unused_argv):
     y_train = (y for y in y_train)
     # Set up logging for predictions
     # Log the values in the "Softmax" tensor with label "probabilities"
-    tensors_to_log = {"probabilities": "softmax_tensor"}
-    logging_hook = tf.train.LoggingTensorHook(
-        tensors=tensors_to_log, every_n_iter=100)
-    classifier.fit(x=x_train, y=y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps, monitors=[logging_hook])
+    # tensors_to_log = {"probabilities": "softmax_tensor"}
+    # logging_hook = tf.train.LoggingTensorHook(
+    #     tensors=tensors_to_log, every_n_iter=100)
+    # classifier.fit(x=x_train, y=y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps, monitors=[logging_hook])
     # , monitors=[validation_monitor])
+    classifier.fit(x=x_train, y=y_train, batch_size=FLAGS.batch_size, steps=FLAGS.train_steps)
     y_test = (y for y in y_test)
     # Configure the accuracy metric for evaluation
-    metrics = {
-      learn.metric_spec.MetricSpec(
-              metric_fn=tf.metrics.accuracy, prediction_key="classes"),
-                    }
-    score = classifier.evaluate(x=x_test, y=y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps, metrics=metrics)
+    # metrics = {
+    #   learn.metric_spec.MetricSpec(
+    #           metric_fn=tf.metrics.accuracy, prediction_key="classes"),
+    #                 }
+    # score = classifier.evaluate(x=x_test, y=y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps, metrics=metrics)
+    score = classifier.evaluate(x=x_test, y=y_test, batch_size=FLAGS.batch_size, steps=FLAGS.dev_steps)
     print(score)
 
 
@@ -130,7 +132,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--batch_size',
-        default=1000,
+        default=10,
         help='batch size',
         action='store_true'
     )
