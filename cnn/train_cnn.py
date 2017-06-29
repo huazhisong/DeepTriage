@@ -142,10 +142,10 @@ with tf.Graph().as_default():
         acc_summary = tf.summary.scalar("accuracy", cnn.accuracy)
         precision_summary = tf.summary.scalar("precision", cnn.precision)
         recall_summary = tf.summary.scalar("recall", cnn.recall)
-        correct_summary = tf.summary.scalar("correct", tf.cast(cnn.correct, tf.int32))
+        correct_summary = tf.summary.scalar("correct", np.sum(cnn.correct))
         # Train Summaries
         train_summary_op = tf.summary.merge(
-            [loss_summary, acc_summary, grad_summaries_merged, precision_summary, recall_summary])
+            [loss_summary, acc_summary, grad_summaries_merged, precision_summary, recall_summary, correct_summary])
         train_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "train"))
         train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
 
@@ -196,13 +196,14 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch,
                 cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
             }
-            _, step, summaries, loss, accuracy, precision, recall = sess.run(
-                [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy, cnn.precision, cnn.recall],
+            _, step, summaries, loss, accuracy, precision, recall, crr = sess.run(
+                [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy, cnn.precision, cnn.recall, cnn.correct],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print(
                 "{}: step {}, loss {:g}, acc {:g}, pre {:g}, rcl {:g}".format(time_str, step, loss, accuracy, precision,
                                                                               recall))
+            print(np.sum(crr))
             train_summary_writer.add_summary(summaries, step)
 
 
