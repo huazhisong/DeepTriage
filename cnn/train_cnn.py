@@ -142,7 +142,7 @@ with tf.Graph().as_default():
         acc_summary = tf.summary.scalar("accuracy", cnn.accuracy)
         precision_summary = tf.summary.scalar("precision", cnn.precision)
         recall_summary = tf.summary.scalar("recall", cnn.recall)
-        correct_summary = tf.summary.scalar("correct", np.sum(cnn.correct))
+        correct_summary = tf.summary.scalar("correct", np.sum(cnn.correct, dtype=np.int32))
         # Train Summaries
         train_summary_op = tf.summary.merge(
             [loss_summary, acc_summary, grad_summaries_merged, precision_summary, recall_summary, correct_summary])
