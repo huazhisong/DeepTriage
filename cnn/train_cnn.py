@@ -233,9 +233,10 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch,
                 cnn.dropout_keep_prob: 1.0
             }
-            _, _, summaries, loss, crr, precision, recall = \
-                sess.run([cnn.precision_op, cnn.recall_op, test_summary_op,
-                          cnn.loss, cnn.correct, cnn.precision, cnn.recall], feed_dict)
+            summaries, loss, crr, precision, recall = \
+                sess.run([cnn.test_summary_op, cnn.loss, cnn.correct, cnn.precision, cnn.recall], feed_dict)
+                #sess.run([cnn.precision_op, cnn.recall_op, test_summary_op,
+                #         cnn.loss, cnn.correct, cnn.precision, cnn.recall], feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, crr {}, prc {:g}, rcl {:g}".
                   format(time_str, step, loss, np.sum(crr), precision, recall))
