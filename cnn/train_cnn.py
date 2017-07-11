@@ -154,7 +154,7 @@ with tf.Graph().as_default():
         dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
 
         # test summaries
-        test_summary_op = tf.summary.merge([loss_summary, precision_summary, recall_summary])
+        test_summary_op = tf.summary.merge([loss_summary, acc_summary, precision_summary, recall_summary])
         test_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "test"))
         test_summary_writer = tf.summary.FileWriter(test_summary_dir, sess.graph)
 
@@ -233,10 +233,9 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch,
                 cnn.dropout_keep_prob: 1.0
             }
-            summaries, loss, crr, precision, recall = \
-                sess.run([test_summary_op, cnn.loss, cnn.correct, cnn.precision, cnn.recall], feed_dict)
-                #sess.run([cnn.precision_op, cnn.recall_op, test_summary_op,
-                #         cnn.loss, cnn.correct, cnn.precision, cnn.recall], feed_dict)
+            _, _, summaries, loss, accuracy, crr, precision, recall = \
+                sess.run([cnn.precision_op, cnn.recall_op, test_summary_op, cnn.loss,
+                          cnn.accuracy, cnn.correct, cnn.precision, cnn.recall], feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, crr {}, prc {:g}, rcl {:g}".
                   format(time_str, step, loss, np.sum(crr), precision, recall))
@@ -286,9 +285,7 @@ with tf.Graph().as_default():
             correct = test_step(x_dev_batch, y_dev_batch, step, writer=test_summary_writer)
             true_correct += np.sum(correct)
             step += 1
-            print("\n")
+
         numer_iter = int((len(y_dev) - 1) / FLAGS.batch_size) + 1
         print('%s: total accuracy @ 3 = %.3f' %
               (datetime.datetime.now().isoformat(), true_correct / (numer_iter * FLAGS.batch_size)))
-
-
