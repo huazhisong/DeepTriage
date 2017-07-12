@@ -30,8 +30,8 @@ tf.flags.DEFINE_float("dropout_keep_prob", 0.8, "Dropout keep probability (defau
 tf.flags.DEFINE_float("l2_reg_lambda", 0.3, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_float("init_learning_rate", 1e-4, "learning rate")
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("batch_size", 1024, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("num_epochs", 2000, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 1000, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
@@ -39,7 +39,7 @@ tf.flags.DEFINE_integer("top_k", 3, "evaluation top k")
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
-tf.flags.DEFINE_string("embedding_type", "static", "static,train,static_train (default: 'static')")
+tf.flags.DEFINE_string("embedding_type", "static_train", "static,train,static_train (default: 'static')")
 
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
@@ -237,8 +237,8 @@ with tf.Graph().as_default():
                 sess.run([cnn.precision_op, cnn.recall_op, test_summary_op, cnn.loss,
                           cnn.accuracy, cnn.correct, cnn.precision, cnn.recall], feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, crr {}, prc {:g}, rcl {:g}".
-                  format(time_str, step, loss, np.sum(crr), precision, recall))
+            print("{}: step {}, loss {:g}, acc {:g}, prc {:g}, rcl {:g}".
+                  format(time_str, step, loss, accuracy, precision, recall))
             if writer:
                 writer.add_summary(summaries, step)
             return np.sum(crr)
