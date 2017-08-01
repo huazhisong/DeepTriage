@@ -3,6 +3,28 @@
 源自论文：Convolutional Neural Networks for Sentence Classification
 博客：http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/
 ====================================================================
+2017年7月31号
+设计：训练到8万步
+dev_sample_percentage：0.2
+embedding_dim：300
+filter_sizes：2,4,8,10,20,40,90,120,180,200
+num_filters：10
+dropout_keep_prob：0.8
+l2_reg_lambda：0.3
+learning_rate: 1e-4
+batch_size：1024
+num_epochs：2000
+evaluate_every：1000
+checkpoint_every：1000
+num_checkpoints：1000
+top_k：3
+embedding_type：static_train
+试验结果
+训练时长：4d3h14m43s
+accuracy：训练集0.9531，验证集0.5322
+precision：训练集0.2907，验证集0.2907
+recall：训练集0.8721，验证集0.8721
+====================================================================
 2017年7月12号
 设计：使用全部测试集的评价指标
 dev_sample_percentage：0.2

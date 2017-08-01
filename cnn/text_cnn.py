@@ -26,20 +26,28 @@ class TextCNN(object):
                     tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), trainable=False,
                     name="W")
                 self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)
-            elif embedding_type == 'train':
+                self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
+            elif embedding_type == 'rand' or embedding_type == 'none_static':
                 self.W = tf.Variable(
                     tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
                     name="W")
                 self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)
-            elif embedding_type == 'static_train':
+                self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
+            elif embedding_type == 'multiple_channels':
                 self.W = tf.Variable(
                     tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
                     name="W")
-                self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)
+                train_embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)
+                train_embedded_chars = tf.expand_dims(train_embedded_chars, -1)
+                self.W_static = tf.Variable(
+                    tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), trainable=False,
+                    name="W_static")
+                static_embedded_chars = tf.nn.embedding_lookup(self.W_static, self.input_x)
+                static_embedded_chars = tf.expand_dims(static_embedded_chars, -1)
+                self.embedded_chars_expanded = tf.concat([train_embedded_chars, static_embedded_chars], 3)
             else:
                 print("\n**\nWrong embedding type!\n**\n")
 
-            self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
         # Create a convolution + maxpool layer for each filter size
         pooled_outputs = []
         for i, filter_size in enumerate(filter_sizes):

@@ -140,6 +140,78 @@ def batch_iter(data, batch_size, num_epochs=1, shuffle=False):
             yield shuffled_data[start_index: end_index]
 
 
+def load_files(train_files, dev_files):
+
+    data_list = list()
+    for file in train_files:
+        data = pd.read_csv(file, encoding='latin-1')
+        data_list.append(data)
+    data = pd.DataFrame(np.concatenate(data_list))
+    x_train = data[3]
+    y_train = data[4]
+
+    data_list = list()
+    for file in dev_files:
+        data = pd.read_csv(file, encoding='latin-1')
+        data_list.append(data)
+    data = pd.DataFrame(np.concatenate(data_list))
+    x_dev = data[3]
+    y_dev = data[4]
+    # 处理training data
+    # document length取90%的分位数
+    # document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in x_train])
+    # document_length = np.int64(document_length_df.quantile(0.8))
+    document_length = np.max([len(xx.split(" ")) for xx in x_train])
+    vocabulary_processor = learn.preprocessing.VocabularyProcessor(document_length)
+    x_train = np.array(list(vocabulary_processor.fit_transform(x_train)))
+    x_dev = np.array(list(vocabulary_processor.transform(x_dev)))
+
+    # 处理label
+    lb = LabelBinarizer()
+    y_train = lb.fit_transform(y_train)
+    y_dev = lb.transform(y_dev)
+
+    print("Document length: %d" % document_length)
+    print("Vocabulary Size: {:d}".format(len(vocabulary_processor.vocabulary_)))
+    print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
+
+    return x_train, y_train, x_dev, y_dev, vocabulary_processor
+
+
+def batch_generator(data, batch_size, num_epochs=1, shuffle=False):
+    """
+
+    :param data:
+    :param batch_size:
+    :param num_epochs:
+    :param shuffle:
+    :return:
+    """
+    data = np.array(data)
+    data_size = len(data)
+    num_batches_per_epoch = int((data_size - 1) / batch_size) + 1
+
+    for epoch in range(num_epochs):
+        # Shuffle the data at each epoch
+        if shuffle:
+            shuffle_indices = np.random.permutation(np.arange(data_size))
+            shuffled_data = data[shuffle_indices]
+        else:
+            shuffled_data = data
+        for batch_num in range(num_batches_per_epoch):
+            start_index = batch_num * batch_size
+            end_index = (batch_num + 1) * batch_size
+            # end_index = min((batch_num + 1) * batch_size, data_size)
+            if end_index < data_size:
+                yield shuffled_data[start_index: end_index]
+            else:
+                rest_part = shuffled_data[start_index:]
+                shuffle_indices = np.random.permutation(np.arange(data_size))
+                shuffled_data = shuffled_data[shuffle_indices]
+                new_part = shuffled_data[:batch_size - (data_size - start_index)]
+                yield np.concatenate((rest_part, new_part), axis=0)
+
+
 def read_bug(filename_queue):
     """Reads and parse examples form bug data files"""
 
@@ -165,3 +237,9 @@ def generate_bug_and_label_batch(filenames, min_after_dequeue, batch_size, num_e
         example_batch, label_batch = tf.train.batch(
             [example, label], batch_size=batch_size, capacity=capacity)
     return example_batch, label_batch
+
+if __name__ == "__main__":
+    data_dir = "E:/song_ws/data/data_by_ocean/eclipse/"
+    train_files = [data_dir + str(i) + '.csv' for i in range(2)]
+    test_files = [data_dir + str(i) + '.csv' for i in range(2, 3)]
+    x_train, y_train, x_dev, y_dev, vocabulary_processor = load_files(train_files, test_files)

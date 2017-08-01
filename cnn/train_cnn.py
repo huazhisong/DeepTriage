@@ -14,7 +14,7 @@ import text_cnn
 # ==================================================
 
 # Data loading params
-tf.flags.DEFINE_float("dev_sample_percentage", 0.2, "Percentage of the training data to use for validation")
+tf.flags.DEFINE_float("dev_sample_percentage", 0.1, "Percentage of the training data to use for validation")
 tf.flags.DEFINE_string("data_file", "../../data/data_by_ocean/eclipse/sort-text-id.csv",
                        "Data source for the  data.")
 tf.flags.DEFINE_string("embedding_file", "../../data/data_by_ocean/GoogleNews-vectors-negative300.bin",
@@ -23,23 +23,25 @@ tf.flags.DEFINE_string("log_dir", "./runs/cnn_model", "log dir")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character embedding (default: 128)")
-tf.flags.DEFINE_string("filter_sizes", "2,4,8,10,20,40,90,120,180,200",
+tf.flags.DEFINE_string("filter_sizes", "3,4,5",
                        "Comma-separated filter sizes (default: '3,4,5')")
-tf.flags.DEFINE_integer("num_filters", 10, "Number of filters per filter size (default: 128)")
-tf.flags.DEFINE_float("dropout_keep_prob", 0.8, "Dropout keep probability (default: 0.5)")
-tf.flags.DEFINE_float("l2_reg_lambda", 0.3, "L2 regularization lambda (default: 0.0)")
+tf.flags.DEFINE_integer("num_filters", 100, "Number of filters per filter size (default: 128)")
+tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
+tf.flags.DEFINE_float("l2_reg_lambda", 3, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_float("init_learning_rate", 1e-4, "learning rate")
+tf.flags.DEFINE_float("decay_rate", 0.96, "decay rate")
+
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 1024, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 2000, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 1000, "Evaluate model on dev set after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
+tf.flags.DEFINE_integer("batch_size", 50, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 tf.flags.DEFINE_integer("top_k", 3, "evaluation top k")
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
-tf.flags.DEFINE_string("embedding_type", "static_train", "static,train,static_train (default: 'static')")
+tf.flags.DEFINE_string("embedding_type", "rand", "rand, static,none_static, multiple_channels (default: 'rand')")
 
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
@@ -60,9 +62,14 @@ print("Loading data...")
 # ocean's training data
 # x, y, vocab_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.label_file)
 
+data_dir = "../../data/data_by_ocean/eclipse/"
+train_files = [data_dir + str(i) + '.csv' for i in range(2)]
+test_files = [data_dir + str(i) + '.csv' for i in range(2, 3)]
+x_train, y_train, x_dev, y_dev, vocabulary_processor = data_helpers.load_files(train_files, test_files)
+
 # xiaowan training data
-x_train, y_train, x_dev, y_dev, vocabulary_processor = \
-    data_helpers.load_data_labels(FLAGS.data_file, FLAGS.dev_sample_percentage)
+# x_train, y_train, x_dev, y_dev, vocabulary_processor = \
+#     data_helpers.load_data_labels(FLAGS.data_file, FLAGS.dev_sample_percentage)
 # mine training data
 # train_data = ['../../data/data_by_ocean/eclipse/raw/0_summary_description.csv',
 #               '../../data/data_by_ocean/eclipse/raw/1_summary_description.csv',
@@ -115,16 +122,17 @@ with tf.Graph().as_default():
         global_step = tf.Variable(0, name="global_step", trainable=False)
 
         # add decay learning rate
-        num_batches_per_epoch = int((len(x_train) - 1) / FLAGS.batch_size) + 1
-        decay_steps = int(num_batches_per_epoch * FLAGS.num_epochs * 0.1)
+        # num_batches_per_epoch = int((len(x_train) - 1) / FLAGS.batch_size) + 1
+        # decay_steps = int(num_batches_per_epoch * FLAGS.num_epochs * 0.1)
         # Decay the learning rate exponentially based on the number of steps.
-        lr = tf.train.exponential_decay(FLAGS.init_learning_rate,
-                                        global_step,
-                                        decay_steps,
-                                        0.1,
-                                        staircase=True)
-
-        optimizer = tf.train.AdamOptimizer(lr)
+        # lr = tf.train.exponential_decay(FLAGS.init_learning_rate,
+        #                                 global_step,
+        #                                 decay_steps,
+        #                                 FLAGS.decay_rate,
+        #                                 staircase=True)
+        lr = FLAGS.init_learning_rate
+        # optimizer = tf.train.AdamOptimizer(lr)
+        optimizer = tf.train.AdadeltaOptimizer(lr)
         grads_and_vars = optimizer.compute_gradients(cnn.loss)
         train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
         # Keep track of gradient values and sparsity (optional)
@@ -169,7 +177,7 @@ with tf.Graph().as_default():
         # vocabulary_processor.save(os.path.join(FLAGS.log_dir, "vocab"))
 
         initW = None
-        if FLAGS.embedding_type in ['static', 'static_train']:
+        if FLAGS.embedding_type in ['static', 'none_static', 'multiple_channels']:
             # initial matrix with random uniform
             initW = np.random.uniform(-0.25, 0.25, (len(vocabulary_processor.vocabulary_), FLAGS.embedding_dim))
             # load any vectors from the word2vec
@@ -180,57 +188,63 @@ with tf.Graph().as_default():
                 if idx != 0:
                     initW[idx] = word_vectors[word]
             sess.run(cnn.W.assign(initW))
+            if FLAGS.embedding_type == 'multiple_channels':
+                sess.run(cnn.W_static.assign(initW))
 
         # Initialize all variables
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
 
 
-        def train_step(x_batch, y_batch):
+        def train_step(x_batch_train, y_batch_train):
             """
             A single training step
             """
             feed_dict = {
-                cnn.input_x: x_batch,
-                cnn.input_y: y_batch,
+                cnn.input_x: x_batch_train,
+                cnn.input_y: y_batch_train,
                 cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
             }
-            _, step, summaries, loss, accuracy, precision, recall = sess.run(
+            _, step_train, summaries, loss, accuracy, precision, recall = sess.run(
                 [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy, cnn.precision, cnn.recall],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print(
-                "{}: step {}, loss {:g}, acc {:g}, pre {:g}, rcl {:g}".format(time_str, step, loss, accuracy, precision,
+                "{}: step {}, loss {:g}, acc {:g}, pre {:g}, rcl {:g}".format(time_str,
+                                                                              step_train,
+                                                                              loss,
+                                                                              accuracy,
+                                                                              precision,
                                                                               recall))
-            train_summary_writer.add_summary(summaries, step)
+            train_summary_writer.add_summary(summaries, step_train)
 
 
-        def dev_step(x_batch, y_batch, writer=None):
+        def dev_step(x_batch_evl, y_batch_evl, writer=None):
             """
             validate model on a dev set
             """
             feed_dict = {
-                cnn.input_x: x_batch,
-                cnn.input_y: y_batch,
+                cnn.input_x: x_batch_evl,
+                cnn.input_y: y_batch_evl,
                 cnn.dropout_keep_prob: 1.0
             }
-            step, summaries, loss, accuracy, precision, recall = \
+            step_evl, summaries, loss, accuracy, precision, recall = \
                 sess.run([global_step, dev_summary_op,
                           cnn.loss, cnn.accuracy, cnn.precision, cnn.recall], feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}, prc {:g}, rcl {:g}".format(time_str, step,
+            print("{}: step {}, loss {:g}, acc {:g}, prc {:g}, rcl {:g}".format(time_str, step_evl,
                                                                                 loss, accuracy, precision, recall))
             if writer:
-                writer.add_summary(summaries, step)
+                writer.add_summary(summaries, step_evl)
 
 
-        def test_step(x_batch, y_batch, step, writer=None):
+        def test_step(x_batch_test, y_batch_test, step_test, writer=None):
             """
              Evaluates model on a dev set
             """
             feed_dict = {
-                cnn.input_x: x_batch,
-                cnn.input_y: y_batch,
+                cnn.input_x: x_batch_test,
+                cnn.input_y: y_batch_test,
                 cnn.dropout_keep_prob: 1.0
             }
             _, _, summaries, loss, accuracy, crr, precision, recall = \
@@ -238,14 +252,14 @@ with tf.Graph().as_default():
                           cnn.accuracy, cnn.correct, cnn.precision, cnn.recall], feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, acc {:g}, prc {:g}, rcl {:g}".
-                  format(time_str, step, loss, accuracy, precision, recall))
+                  format(time_str, step_test, loss, accuracy, precision, recall))
             if writer:
-                writer.add_summary(summaries, step)
+                writer.add_summary(summaries, step_test)
             return np.sum(crr)
 
 
         # Generate batches
-        batches = data_helpers.batch_iter(
+        batches = data_helpers.batch_generator(
             list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
 
         # Training loop. For each batch...
@@ -255,7 +269,7 @@ with tf.Graph().as_default():
             current_step = tf.train.global_step(sess, global_step)
             if current_step % FLAGS.evaluate_every == 0:
                 print("\nEvaluation:")
-                dev_batches = data_helpers.batch_iter(list(zip(x_dev, y_dev)), FLAGS.batch_size)
+                dev_batches = data_helpers.batch_generator(list(zip(x_dev, y_dev)), FLAGS.batch_size * 2)
 
                 for dev_batch in dev_batches:
                     x_dev_batch, y_dev_batch = zip(*dev_batch)
@@ -277,7 +291,7 @@ with tf.Graph().as_default():
         projector.visualize_embeddings(summary_writer, config)
 
         print("\n Testing:")
-        dev_batches = data_helpers.batch_iter(list(zip(x_dev, y_dev)), FLAGS.batch_size)
+        dev_batches = data_helpers.batch_generator(list(zip(x_dev, y_dev)), FLAGS.batch_size)
         step = 0
         true_correct = 0
         for dev_batch in dev_batches:
