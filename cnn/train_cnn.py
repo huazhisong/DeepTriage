@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 from tensorflow.contrib.tensorboard.plugins import projector
 from gensim.models.word2vec import KeyedVectors
 import tensorflow as tf
@@ -14,10 +13,9 @@ import text_cnn
 # ==================================================
 
 # Data loading params
-tf.flags.DEFINE_float("dev_sample_percentage", 0.1, "Percentage of the training data to use for validation")
-tf.flags.DEFINE_string("data_file", "../../data/data_by_ocean/eclipse/sort-text-id.csv",
-                       "Data source for the  data.")
-tf.flags.DEFINE_string("embedding_file", "../../data/data_by_ocean/GoogleNews-vectors-negative300.bin",
+tf.flags.DEFINE_string("data_file", "../../data/eclipse/train.tfrecords",
+                       "Data source for the  data TFRecords.")
+tf.flags.DEFINE_string("embedding_file", "../../data/GoogleNews-vectors-negative300.bin",
                        "embedding file")
 tf.flags.DEFINE_string("log_dir", "./runs/cnn_model", "log dir")
 
@@ -43,7 +41,7 @@ tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device 
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
 tf.flags.DEFINE_string("embedding_type", "rand", "rand, static,none_static, multiple_channels (default: 'rand')")
 
-FLAGS = tf.flags.FLAGS
+
 FLAGS._parse_flags()
 print("\nParameters:")
 for attr, value in sorted(FLAGS.__flags.items()):
@@ -57,16 +55,16 @@ tf.gfile.MakeDirs(FLAGS.log_dir)
 # Data Preparation
 # ==================================================
 
-# Load data
-print("Loading data...")
-# ocean's training data
-# x, y, vocab_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.label_file)
-
-data_dir = "../../data/data_by_ocean/eclipse/"
-train_files = [data_dir + str(i) + '.csv' for i in range(2)]
-test_files = [data_dir + str(i) + '.csv' for i in range(2, 3)]
-x_train, y_train, x_dev, y_dev, vocabulary_processor = data_helpers.load_files(train_files, test_files)
-
+## Load data
+#print("Loading data...")
+## ocean's training data
+## x, y, vocab_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.label_file)
+#
+#data_dir = "../../data/data_by_ocean/eclipse/"
+#train_files = [data_dir + str(i) + '.csv' for i in range(2)]
+#test_files = [data_dir + str(i) + '.csv' for i in range(2, 3)]
+#x_train, y_train, x_dev, y_dev, vocabulary_processor = data_helpers.load_files(train_files, test_files)
+#
 # xiaowan training data
 # x_train, y_train, x_dev, y_dev, vocabulary_processor = \
 #     data_helpers.load_data_labels(FLAGS.data_file, FLAGS.dev_sample_percentage)
@@ -256,50 +254,69 @@ with tf.Graph().as_default():
             if writer:
                 writer.add_summary(summaries, step_test)
             return np.sum(crr)
+        
+        data_batch, label_batch = data_helpers.read_TFRecord(FLAGS.data_file, batch_size=FLAGS.batch_size)
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(coord=coord)
+        for step in range(FLAGS.num_epochs):
+            
+            try:
+                while not coord.should_stop() and i<1:
+                    # just plot one batch size            
+                    data, label = sess.run([data_batch, label_batch])
+                    print('data', data)
+                    print('label', label)
+                    i+=1
+                    
+            except tf.errors.OutOfRangeError:
+                print('done!')
+            finally:
+                coord.request_stop()
+            coord.join(threads)
 
-
-        # Generate batches
-        batches = data_helpers.batch_generator(
-            list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
-
-        # Training loop. For each batch...
-        for batch in batches:
-            x_batch, y_batch = zip(*batch)
-            train_step(x_batch, y_batch)
-            current_step = tf.train.global_step(sess, global_step)
-            if current_step % FLAGS.evaluate_every == 0:
-                print("\nEvaluation:")
-                dev_batches = data_helpers.batch_generator(list(zip(x_dev, y_dev)), FLAGS.batch_size * 2)
-
-                for dev_batch in dev_batches:
-                    x_dev_batch, y_dev_batch = zip(*dev_batch)
-                    dev_step(x_dev_batch, y_dev_batch, writer=dev_summary_writer)
-                print("\n")
-                # dev_step(x_dev, y_dev, writer=dev_summary_writr)
-            if current_step % FLAGS.checkpoint_every == 0:
-                path = saver.save(sess, checkpoint_prefix, global_step=current_step)
-                print("Saved model checkpoint to {}\n".format(path))
-
-        # embedding summaries
-        summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir))
-        summary_writer = tf.summary.FileWriter(test_summary_dir)
-        # projector embedding
-        config = projector.ProjectorConfig()
-        embedding = config.embeddings.add()
-        embedding.tensor_name = cnn.W.name
-        embedding.metadata_path = os.path.abspath(os.path.join(FLAGS.log_dir, 'metadata.tsv'))
-        projector.visualize_embeddings(summary_writer, config)
-
-        print("\n Testing:")
-        dev_batches = data_helpers.batch_generator(list(zip(x_dev, y_dev)), FLAGS.batch_size)
-        step = 0
-        true_correct = 0
-        for dev_batch in dev_batches:
-            x_dev_batch, y_dev_batch = zip(*dev_batch)
-            correct = test_step(x_dev_batch, y_dev_batch, step, writer=test_summary_writer)
-            true_correct += np.sum(correct)
-            step += 1
-
-        numer_iter = int((len(y_dev) - 1) / FLAGS.batch_size) + 1
-        print('%s: total accuracy @ 3 = %.3f' %
-              (datetime.datetime.now().isoformat(), true_correct / (numer_iter * FLAGS.batch_size)))
+#        # Generate batches
+#        batches = data_helpers.batch_generator(
+#            list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
+#
+#        # Training loop. For each batch...
+#        for batch in batches:
+#            x_batch, y_batch = zip(*batch)
+#            train_step(x_batch, y_batch)
+#            current_step = tf.train.global_step(sess, global_step)
+#            if current_step % FLAGS.evaluate_every == 0:
+#                print("\nEvaluation:")
+#                dev_batches = data_helpers.batch_generator(list(zip(x_dev, y_dev)), FLAGS.batch_size * 2)
+#
+#                for dev_batch in dev_batches:
+#                    x_dev_batch, y_dev_batch = zip(*dev_batch)
+#                    dev_step(x_dev_batch, y_dev_batch, writer=dev_summary_writer)
+#                print("\n")
+#                # dev_step(x_dev, y_dev, writer=dev_summary_writr)
+#            if current_step % FLAGS.checkpoint_every == 0:
+#                path = saver.save(sess, checkpoint_prefix, global_step=current_step)
+#                print("Saved model checkpoint to {}\n".format(path))
+#
+            
+#        # embedding summaries
+#        summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir))
+#        summary_writer = tf.summary.FileWriter(test_summary_dir)
+#        # projector embedding
+#        config = projector.ProjectorConfig()
+#        embedding = config.embeddings.add()
+#        embedding.tensor_name = cnn.W.name
+#        embedding.metadata_path = os.path.abspath(os.path.join(FLAGS.log_dir, 'metadata.tsv'))
+#        projector.visualize_embeddings(summary_writer, config)
+#
+#        print("\n Testing:")
+#        dev_batches = data_helpers.batch_generator(list(zip(x_dev, y_dev)), FLAGS.batch_size)
+#        step = 0
+#        true_correct = 0
+#        for dev_batch in dev_batches:
+#            x_dev_batch, y_dev_batch = zip(*dev_batch)
+#            correct = test_step(x_dev_batch, y_dev_batch, step, writer=test_summary_writer)
+#            true_correct += np.sum(correct)
+#            step += 1
+#
+#        numer_iter = int((len(y_dev) - 1) / FLAGS.batch_size) + 1
+#        print('%s: total accuracy @ 3 = %.3f' %
+#              (datetime.datetime.now().isoformat(), true_correct / (numer_iter * FLAGS.batch_size)))

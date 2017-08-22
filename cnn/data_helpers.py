@@ -211,35 +211,88 @@ def batch_generator(data, batch_size, num_epochs=1, shuffle=False):
                 new_part = shuffled_data[:batch_size - (data_size - start_index)]
                 yield np.concatenate((rest_part, new_part), axis=0)
 
+def read_TFRecord(tfrecord_file,batch_size, shuffle=False):
+    """
+        读取tfrecord文件
+    """
+    filename_queue = tf.train.string_input_producer([tfrecord_file])
+    reader = tf.TFRecordReader()
+    _, serialized_example = reader.read(filename_queue)
+    features = tf.parse_single_example(serialized_example,
+        features={
+        'label': tf.FixedLenFeature([], tf.string),
+        'data': tf.FixedLenFeature([], tf.string)
+        })
 
-def read_bug(filename_queue):
-    """Reads and parse examples form bug data files"""
-
-    reader = tf.TextLineReader()
-    key, value = reader.read(filename_queue)
-
-    record_defaults = [[-1], [-1]]
-    text, fixer = tf.decode_csv(
-        value, record_defaults=record_defaults)
-    return text, fixer
-
-
-def generate_bug_and_label_batch(filenames, min_after_dequeue, batch_size, num_epochs=None, shuffle=False):
-    filename_queue = tf.train.string_input_producer(
-        filenames, num_epochs=num_epochs, shuffle=False)
-    example, label = read_bug(filename_queue)
-    capacity = min_after_dequeue + 3 * batch_size
+    label = tf.decode_raw(features['label'], tf.int32)
+    label.set_shape([2473])
+    data = tf.decode_raw(features['data'], tf.int32)
+    data.set_shape([472])
+    capacity = 3 * batch_size
     if shuffle:
-        example_batch, label_batch = tf.train.shuffle_batch(
-            [example, label], batch_size=batch_size, capacity=capacity,
-            min_after_dequeue=min_after_dequeue)
+        data_batch, label_batch = tf.train.shuffle_batch([data, label],
+                                                batch_size= batch_size,
+                                                num_threads= 10,
+                                                min_after_dequeue= batch_size,
+                                                capacity = capacity)
     else:
-        example_batch, label_batch = tf.train.batch(
-            [example, label], batch_size=batch_size, capacity=capacity)
-    return example_batch, label_batch
+        data_batch, label_batch = tf.train.batch([data, label],
+                                                batch_size= batch_size,
+                                                num_threads= 10, 
+                                                capacity = capacity)
+    return data_batch, label_batch
+
+
+# 尝试使用batch读取csv文件，读取失败，希望有机会可以更正过来。
+# def read_bug(filename_queue):
+#     """Reads and parse examples form bug data files"""
+
+#     reader = tf.TextLineReader()
+#     key, value = reader.read(filename_queue)
+
+#     record_defaults = [[-1], [-1]]
+#     text, fixer = tf.decode_csv(
+#         value, record_defaults=record_defaults)
+#     return text, fixer
+
+
+# def generate_bug_and_label_batch(filenames, min_after_dequeue, batch_size, num_epochs=None, shuffle=False):
+#     filename_queue = tf.train.string_input_producer(
+#         filenames, num_epochs=num_epochs, shuffle=False)
+#     example, label = read_bug(filename_queue)
+#     capacity = min_after_dequeue + 3 * batch_size
+#     if shuffle:
+#         example_batch, label_batch = tf.train.shuffle_batch(
+#             [example, label], batch_size=batch_size, capacity=capacity,
+#             min_after_dequeue=min_after_dequeue)
+#     else:
+#         example_batch, label_batch = tf.train.batch(
+#             [example, label], batch_size=batch_size, capacity=capacity)
+#     return example_batch, label_batch
 
 if __name__ == "__main__":
-    data_dir = "E:/song_ws/data/data_by_ocean/eclipse/"
-    train_files = [data_dir + str(i) + '.csv' for i in range(2)]
-    test_files = [data_dir + str(i) + '.csv' for i in range(2, 3)]
-    x_train, y_train, x_dev, y_dev, vocabulary_processor = load_files(train_files, test_files)
+    # data_dir = "E:/song_ws/data/data_by_ocean/eclipse/"
+    # train_files = [data_dir + str(i) + '.csv' for i in range(2)]
+    # test_files = [data_dir + str(i) + '.csv' for i in range(2, 3)]
+    # x_train, y_train, x_dev, y_dev, vocabulary_processor = load_files(train_files, test_files)
+    tfrecords_file = '../../data/eclipse/test.tfrecords'
+    data_batch, label_batch = read_TFRecord(tfrecords_file, batch_size=3)
+    with tf.Session()  as sess:
+        
+        i = 0
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(coord=coord)
+        
+        try:
+            while not coord.should_stop() and i<1:
+                # just plot one batch size            
+                data, label = sess.run([data_batch, label_batch])
+                print('data', data)
+                print('label', label)
+                i+=1
+                
+        except tf.errors.OutOfRangeError:
+            print('done!')
+        finally:
+            coord.request_stop()
+        coord.join(threads)
