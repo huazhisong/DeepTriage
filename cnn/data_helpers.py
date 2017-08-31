@@ -158,10 +158,10 @@ def load_files(train_files, dev_files):
     x_dev = data[3]
     y_dev = data[4]
     # 处理training data
-    # document length取90%的分位数
-    # document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in x_train])
-    # document_length = np.int64(document_length_df.quantile(0.8))
-    document_length = np.max([len(xx.split(" ")) for xx in x_train])
+    # document length取80%的分位数
+    document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in x_train])
+    document_length = np.int64(document_length_df.quantile(0.8))
+    # document_length = np.max([len(xx.split(" ")) for xx in x_train])
     vocabulary_processor = learn.preprocessing.VocabularyProcessor(document_length)
     x_train = np.array(list(vocabulary_processor.fit_transform(x_train)))
     x_dev = np.array(list(vocabulary_processor.transform(x_dev)))
