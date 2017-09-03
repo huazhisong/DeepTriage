@@ -25,8 +25,8 @@ document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in x_train])
 document_length = np.int64(document_length_df.quantile(0.8))
 print(document_length)
 vocabulary_processor = learn.preprocessing.VocabularyProcessor(document_length)
-x_train = np.array(list(vocabulary_processor.fit_transform(x_train)))
-x_dev = np.array(list(vocabulary_processor.transform(x_dev)))
+x_train = np.array(list(vocabulary_processor.fit_transform(x_train)), dtype=np.int32)
+x_dev = np.array(list(vocabulary_processor.transform(x_dev)), dtype=np.int32)
 
 # 处理label
 lb = LabelBinarizer()
@@ -43,10 +43,10 @@ cnt = 1
 for d in np.linspace(0, size, 11, dtype=np.int)[1:]:
     writer = tf.python_io.TFRecordWriter('./train%d.tfrecords' % cnt)
     for i in range(p, d):
-        y_t = y_train[i].tostring()
         x_t = x_train[i].tostring()
+        y_t = y_train[i].tostring()
         example = tf.train.Example(features=tf.train.Features(
-            feature={'label': bytes_feature(y_t), 'data': bytes_feature(x_t)}))
+            feature={'data': bytes_feature(x_t), 'label': bytes_feature(y_t)}))
         writer.write(example.SerializeToString())
     writer.close()
     p = d
@@ -59,11 +59,11 @@ filename = './test.tfrecords'
 writer = tf.python_io.TFRecordWriter(filename)
 print('\n testing data transform starting >>>>')
 for i in range(size):
-    y = y_dev[i].tostring()
     x = x_dev[i].tostring()
+    y = y_dev[i].tostring()
     example = tf.train.Example(features=tf.train.Features(feature={
-        'label': bytes_feature(y),
-        'data': bytes_feature(x)
+        'data': bytes_feature(x),
+        'label': bytes_feature(y)
     }))
     writer.write(example.SerializeToString())
 

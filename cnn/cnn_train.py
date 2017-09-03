@@ -5,7 +5,7 @@ from six.moves import xrange
 import data_helpers
 import cnn_classification
 import argparse
-
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 FLAGS = None
 
 
@@ -16,14 +16,16 @@ def train():
             log_device_placement=FLAGS.log_device_placement)
         sess = tf.Session(config=session_conf)
         with sess.as_default():
-            train_file_path = os.path.join(FLAGS.buckets, "eclipse", "train.tfrecords")
-            ckpt_path = os.path.join(FLAGS.log_dir, "modle.chpt")
-            train_log_dir = os.path.join(FLAGS.log_dir, "train")
+            tfrecords_files = [os.path.join(
+                FLAGS.buckets, "eclipse", 'train%d.tfrecords' % i) for i in range(1, 11)]
+            ckpt_path = os.path.join(FLAGS.checkpointDir, "modle.chpt")
+            train_log_dir = os.path.join(FLAGS.summaryDir, "train")
 
             embedding_file_path = os.path.join(FLAGS.buckets, "GoogleNews-vectors-negative300.bin")
             vocab_file_path = os.path.join(FLAGS.buckets, "eclipse", "vocab")
+            filename_queue = tf.train.string_input_producer(tfrecords_files)
             train_data, train_labels = data_helpers.read_TFRecord(
-                train_file_path, FLAGS.batch_size, shuffle=True)
+                filename_queue, FLAGS.batch_size, shuffle=True)
 
             embedded_char = cnn_classification.get_embedding(
                 train_data, embedding_file_path, FLAGS.embedding_type,
@@ -51,6 +53,7 @@ def train():
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=sess, coord=coord)
             num_batches_per_epoch = int((FLAGS.num_train - 1) / FLAGS.batch_size) + 1
+
             # Train and Test
             for i in xrange(FLAGS.num_epochs):
                 for j in xrange(num_batches_per_epoch):
@@ -59,9 +62,11 @@ def train():
                     current_step = tf.train.global_step(sess, global_step)
                     writer.add_summary(summary, current_step)
                     if current_step % FLAGS.evaluate_every == 0:
-                        print("step:", current_step, "accuracy:", sess.run(accuracy))
+                        print("step:", current_step, "accuracy:", sess.run(accuracy, feed_dict={
+                            dropout_keep_prob: FLAGS.dropout_keep_prob}))
 
-            print("accuracy: ", sess.run(accuracy))
+            print("accuracy: ", sess.run(accuracy, feed_dict={
+                dropout_keep_prob: FLAGS.dropout_keep_prob}))
             save_path = saver.save(sess, ckpt_path)
             print("Model saved in file: %s" % save_path)
 
@@ -74,20 +79,20 @@ def main(_):
     """
     main function 
     """
-    # copy data to run file
-    copy_data_path = os.path.join('copy_data', FLAGS.dataset)
-    # copy train data
-    if not tf.gfile.Exists(copy_data_path):
-        tf.gfile.MakeDirs(copy_data_path)
-    for file_path in tf.gfile.Glob(os.path.join(FLAGS.buckets, FLAGS.dataset, "*")):
-        tf.gfile.Copy(file_path, os.path.join(copy_data_path,
-                                              os.path.basename(file_path)), overwrite=True)
-    # copy google vector bin file
-    for file_path in tf.gfile.Glob(os.path.join(FLAGS.buckets, '*.bin')):
-        tf.gfile.Copy(file_path, os.path.join('copy_data',
-                                              os.path.basename(file_path)), overwrite=True)
+    # # copy data to run file
+    # copy_data_path = os.path.join('copy_data', FLAGS.dataset)
+    # # copy train data
+    # if not tf.gfile.Exists(copy_data_path):
+    #     tf.gfile.MakeDirs(copy_data_path)
+    # for file_path in tf.gfile.Glob(os.path.join(FLAGS.buckets, FLAGS.dataset, "*")):
+    #     tf.gfile.Copy(file_path, os.path.join(copy_data_path,
+    #                                           os.path.basename(file_path)), overwrite=True)
+    # # copy google vector bin file
+    # for file_path in tf.gfile.Glob(os.path.join(FLAGS.buckets, '*.bin')):
+    #     tf.gfile.Copy(file_path, os.path.join('copy_data',
+    #                                           os.path.basename(file_path)), overwrite=True)
 
-    FLAGS.buckets = './cope_data/'
+    # FLAGS.buckets = './cope_data/'
     train()
 
 
@@ -95,7 +100,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # Parameters
     # 获得buckets路径
-    parser.add_argument('--buckets', type=str, default='../../data/', help='input data path')
+    parser.add_argument('--buckets', type=str,
+                        default='../../../data/data_by_ocean', help='input data path')
     # 获得数据库
     parser.add_argument('--dataset', type=str, default='eclipse', help='dataset')
     # 获得checkpoint路径
@@ -111,17 +117,17 @@ if __name__ == "__main__":
                         help="Number of filters per filter size")
     parser.add_argument("--dropout_keep_prob", type=float,
                         default=0.5, help="Dropout keep probability")
-    parser.add_argument("--l2_reg_lambda", type=float, default=3., help="L2 regularization lambda")
+    parser.add_argument("--l2_reg_lambda", type=float, default=0., help="L2 regularization lambda")
     parser.add_argument("--init_learning_rate", type=float, default=1e-4, help="learning rate")
     parser.add_argument("--decay_rate", type=float, default=0.96, help="decay rate")
 
     # # Training parameters
-    parser.add_argument("--num_classes", type=int, default=2743, help="number of classes")
+    parser.add_argument("--num_classes", type=int, default=2473, help="number of classes")
     parser.add_argument("--vocabulary_size", type=int, default=312684,
                         help="vocabulary size of data")
     parser.add_argument("--embedding_dim", type=int, default=300,
                         help="Dimensionality of character embedding")
-    parser.add_argument("--batch_size", type=int, default=50, help="Batch Size")
+    parser.add_argument("--batch_size", type=int, default=100, help="Batch Size")
     parser.add_argument("--num_train", type=int, default=179964, help="Number of train data")
     parser.add_argument("--num_epochs", type=int, default=200, help="Number of training epochs")
     parser.add_argument("--evaluate_every", type=int, default=100,
@@ -130,8 +136,8 @@ if __name__ == "__main__":
                         help="Save model after this many steps")
     parser.add_argument("--num_checkpoints", type=int, default=500,
                         help="Number of checkpoints to store")
-    parser.add_argument("--top_k", type=int, default=3, help="evaluation top k")
-    parser.add_argument("--embedding_type", type=str, default="none_static",
+    parser.add_argument("--top_k", type=int, default=1, help="evaluation top k")
+    parser.add_argument("--embedding_type", type=str, default="non_static",
                         help="rand, static,none_static, multiple_channels")
 
     # # Misc Parameters
@@ -144,8 +150,8 @@ if __name__ == "__main__":
 
     if not tf.gfile.Exists(FLAGS.checkpointDir):
         tf.gfile.MakeDirs(FLAGS.checkpointDir)
-    if not tf.gfile.Exists(FLAGS.buckets):
-        tf.gfile.MakeDirs(FLAGS.buckets)
+    # if not tf.gfile.Exists(FLAGS.buckets):
+    #     tf.gfile.MakeDirs(FLAGS.buckets)
     if not tf.gfile.Exists(FLAGS.summaryDir):
         tf.gfile.MakeDirs(FLAGS.summaryDir)
 

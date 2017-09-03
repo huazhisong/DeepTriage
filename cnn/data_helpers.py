@@ -213,11 +213,10 @@ def batch_generator(data, batch_size, num_epochs=1, shuffle=False):
                 yield np.concatenate((rest_part, new_part), axis=0)
 
 
-def read_TFRecord(tfrecord_file, batch_size, shuffle=False):
+def read_TFRecord(filename_queue, batch_size, shuffle=False):
     """
         读取tfrecord文件
     """
-    filename_queue = tf.train.string_input_producer([tfrecord_file])
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
     features = tf.parse_single_example(serialized_example,
@@ -229,7 +228,7 @@ def read_TFRecord(tfrecord_file, batch_size, shuffle=False):
     label = tf.decode_raw(features['label'], tf.int32)
     label.set_shape([2473])
     data = tf.decode_raw(features['data'], tf.int32)
-    data.set_shape([472])
+    data.set_shape([236])
     capacity = 3 * batch_size
     if shuffle:
         data_batch, label_batch = tf.train.shuffle_batch([data, label],
@@ -278,6 +277,7 @@ if __name__ == "__main__":
     # test_files = [data_dir + str(i) + '.csv' for i in range(2, 3)]
     # x_train, y_train, x_dev, y_dev, vocabulary_processor = load_files(train_files, test_files)
     tfrecords_file = '../../data/eclipse/test.tfrecords'
+    filename_queue = tf.train.string_input_producer([tfrecords_file])
     data_batch, label_batch = read_TFRecord(tfrecords_file, batch_size=3)
     with tf.Session() as sess:
 

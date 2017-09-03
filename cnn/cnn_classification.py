@@ -3,6 +3,7 @@ from gensim.models.word2vec import KeyedVectors
 from tensorflow.contrib import learn
 import tensorflow as tf
 import numpy as np
+import pdb
 
 
 def get_embedding(input, pretrain_embedding_path,
@@ -25,7 +26,7 @@ def get_embedding(input, pretrain_embedding_path,
             idx = vocabulary_processor.vocabulary_.get(word)
             if idx != 0:
                 initW[idx] = word_vectors[word]
-
+        # pdb.set_trace()
         if embedding_type == 'static':
             W = tf.Variable(tf.random_uniform(
                 [vocabulary_size, emb_dim], -init_width, init_width), trainable=False, name="W")
@@ -54,14 +55,14 @@ def get_embedding(input, pretrain_embedding_path,
 
 def inference(embedded_data, filter_sizes, num_filters, num_classes, dropout_keep_prob):
 
-    embedding_size = embedded_data.shape()[2]
-    sequence_length = embedded_data.shape()[1]
+    embedding_size = embedded_data.shape[2].value
+    sequence_length = embedded_data.shape[1].value
     pooled_outputs = []
     for i, filter_size in enumerate(filter_sizes):
         with tf.name_scope('conv_maxpool_%s' % filter_size):
             # convolution layer
             filter_shape = [filter_size, embedding_size, 1, num_filters]
-            W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
+            W = tf.Variable(tf.random_uniform(shape=filter_shape), name="W")
             b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name="b")
             conv = tf.nn.conv2d(embedded_data, W, strides=[
                                 1, 1, 1, 1], padding="VALID", name="conv")
@@ -117,7 +118,7 @@ def train(loss, init_learning_rate, global_step):
     # staircase=True
     lr = init_learning_rate
     # optimizer = tf.traimOptimizer(lr)
-    optimizer = tf.train.AdadeltaOptimizer(lr)
+    optimizer = tf.train.AdamOptimizer(lr)
     grads_and_vars = optimizer.compute_gradients(loss)
     train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
 
@@ -139,7 +140,7 @@ def evaluation(logits, labels, top_k):
     label = tf.arg_max(labels, 1)
     # Accuracy
     with tf.name_scope("accuracy"):
-        correct = tf.cast(tf.nn.in_top_k(logits, label, top_k))
+        correct = tf.cast(tf.nn.in_top_k(logits, label, top_k), dtype=tf.float32)
         accuracy = tf.reduce_mean(correct)
         tf.summary.scalar("accuracy", accuracy)
 
