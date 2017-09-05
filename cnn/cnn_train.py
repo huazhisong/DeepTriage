@@ -79,7 +79,7 @@ def main(_):
     """
     main function 
     """
-    # # copy data to run file
+    # # # copy data to run file
     # copy_data_path = os.path.join('copy_data', FLAGS.dataset)
     # # copy train data
     # if not tf.gfile.Exists(copy_data_path):
@@ -88,11 +88,12 @@ def main(_):
     #     tf.gfile.Copy(file_path, os.path.join(copy_data_path,
     #                                           os.path.basename(file_path)), overwrite=True)
     # # copy google vector bin file
-    # for file_path in tf.gfile.Glob(os.path.join(FLAGS.buckets, '*.bin')):
+    # for file_path in tf.gfile.Glob(os.path.join(FLAGS.buckets, '*.zip')):
     #     tf.gfile.Copy(file_path, os.path.join('copy_data',
     #                                           os.path.basename(file_path)), overwrite=True)
 
     # FLAGS.buckets = './cope_data/'
+    FLAGS.buckets = 'data/data_by_ocean'
     train()
 
 
@@ -101,7 +102,7 @@ if __name__ == "__main__":
     # Parameters
     # 获得buckets路径
     parser.add_argument('--buckets', type=str,
-                        default='../../../data/data_by_ocean', help='input data path')
+                        default='../../data/data_by_ocean', help='input data path')
     # 获得数据库
     parser.add_argument('--dataset', type=str, default='eclipse', help='dataset')
     # 获得checkpoint路径
