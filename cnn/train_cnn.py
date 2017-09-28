@@ -14,8 +14,7 @@ import text_cnn
 # ==================================================
 
 # Data loading params
-tf.flags.DEFINE_float("dev_sample_percentage", 0.1,
-                      "Percentage of the training data to use for validation")
+tf.flags.DEFINE_float("dev_sample_percentage", 0.1, "Percentage of the training data to use for validation")
 tf.flags.DEFINE_string("data_file", "../../data/data_by_ocean/eclipse/sort-text-id.csv",
                        "Data source for the  data.")
 tf.flags.DEFINE_string("embedding_file", "../../data/data_by_ocean/GoogleNews-vectors-negative300.bin",
@@ -23,37 +22,26 @@ tf.flags.DEFINE_string("embedding_file", "../../data/data_by_ocean/GoogleNews-ve
 tf.flags.DEFINE_string("log_dir", "./runs/cnn_model", "log dir")
 
 # Model Hyperparameters
-tf.flags.DEFINE_integer("embedding_dim", 300,
-                        "Dimensionality of character embedding (default: 128)")
-tf.flags.DEFINE_string("filter_sizes", "3,4,5,120,150,180",
+tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character embedding (default: 128)")
+tf.flags.DEFINE_string("filter_sizes", "3,4,5",
                        "Comma-separated filter sizes (default: '3,4,5')")
-tf.flags.DEFINE_integer(
-    "num_filters", 100, "Number of filters per filter size (default: 128)")
-tf.flags.DEFINE_float("dropout_keep_prob", 0.5,
-                      "Dropout keep probability (default: 0.5)")
-tf.flags.DEFINE_float("l2_reg_lambda", 0.0,
-                      "L2 regularization lambda (default: 0.0)")
+tf.flags.DEFINE_integer("num_filters", 100, "Number of filters per filter size (default: 128)")
+tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
+tf.flags.DEFINE_float("l2_reg_lambda", 3, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_float("init_learning_rate", 1e-4, "learning rate")
 tf.flags.DEFINE_float("decay_rate", 0.96, "decay rate")
 
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer(
-    "num_epochs", 200, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 1000,
-                        "Evaluate model on dev set after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 1000,
-                        "Save model after this many steps (default: 100)")
-tf.flags.DEFINE_integer("num_checkpoints", 500,
-                        "Number of checkpoints to store (default: 5)")
-tf.flags.DEFINE_integer("top_k", 1, "evaluation top k")
+tf.flags.DEFINE_integer("batch_size", 50, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
+tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
+tf.flags.DEFINE_integer("top_k", 3, "evaluation top k")
 # Misc Parameters
-tf.flags.DEFINE_boolean("allow_soft_placement", True,
-                        "Allow device soft device placement")
-tf.flags.DEFINE_boolean("log_device_placement", False,
-                        "Log placement of ops on devices")
-tf.flags.DEFINE_string("embedding_type", "none_static",
-                       "rand, static,none_static, multiple_channels (default: 'rand')")
+tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
+tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
+tf.flags.DEFINE_string("embedding_type", "rand", "rand, static,none_static, multiple_channels (default: 'rand')")
 
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
@@ -75,12 +63,9 @@ print("Loading data...")
 # x, y, vocab_processor = data_helpers.load_data_labels(FLAGS.data_file, FLAGS.label_file)
 
 data_dir = "../../data/data_by_ocean/eclipse/"
-train_index = 6
-train_files = [data_dir + str(i) + '.csv' for i in range(train_index)]
-test_files = [data_dir +
-              str(i) + '.csv' for i in range(train_index, train_index + 1)]
-x_train, y_train, x_dev, y_dev, vocabulary_processor = data_helpers.load_files(
-    train_files, test_files)
+train_files = [data_dir + str(i) + '.csv' for i in range(2)]
+test_files = [data_dir + str(i) + '.csv' for i in range(2, 3)]
+x_train, y_train, x_dev, y_dev, vocabulary_processor = data_helpers.load_files(train_files, test_files)
 
 # xiaowan training data
 # x_train, y_train, x_dev, y_dev, vocabulary_processor = \
@@ -149,16 +134,13 @@ with tf.Graph().as_default():
         # optimizer = tf.train.AdamOptimizer(lr)
         optimizer = tf.train.AdadeltaOptimizer(lr)
         grads_and_vars = optimizer.compute_gradients(cnn.loss)
-        train_op = optimizer.apply_gradients(
-            grads_and_vars, global_step=global_step)
+        train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
         # Keep track of gradient values and sparsity (optional)
         grad_summaries = []
         for g, v in grads_and_vars:
             if g is not None:
-                grad_hist_summary = tf.summary.histogram(
-                    "{}/grad/hist".format(v.name), g)
-                sparsity_summary = tf.summary.scalar(
-                    "{}/grad/sparsity".format(v.name), tf.nn.zero_fraction(g))
+                grad_hist_summary = tf.summary.histogram("{}/grad/hist".format(v.name), g)
+                sparsity_summary = tf.summary.scalar("{}/grad/sparsity".format(v.name), tf.nn.zero_fraction(g))
                 grad_summaries.append(grad_hist_summary)
                 grad_summaries.append(sparsity_summary)
         grad_summaries_merged = tf.summary.merge(grad_summaries)
@@ -171,33 +153,25 @@ with tf.Graph().as_default():
         # Train Summaries
         train_summary_op = tf.summary.merge(
             [loss_summary, acc_summary, grad_summaries_merged, precision_summary, recall_summary])
-        train_summary_dir = os.path.abspath(
-            os.path.join(FLAGS.log_dir, "summaries", "train"))
-        train_summary_writer = tf.summary.FileWriter(
-            train_summary_dir, sess.graph)
+        train_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "train"))
+        train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
 
         # validation summaries
-        dev_summary_op = tf.summary.merge(
-            [loss_summary, acc_summary, precision_summary, recall_summary])
-        dev_summary_dir = os.path.abspath(os.path.join(
-            FLAGS.log_dir, "summaries", "validation"))
+        dev_summary_op = tf.summary.merge([loss_summary, acc_summary, precision_summary, recall_summary])
+        dev_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "validation"))
         dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
 
         # test summaries
-        test_summary_op = tf.summary.merge(
-            [loss_summary, acc_summary, precision_summary, recall_summary])
-        test_summary_dir = os.path.abspath(
-            os.path.join(FLAGS.log_dir, "summaries", "test"))
-        test_summary_writer = tf.summary.FileWriter(
-            test_summary_dir, sess.graph)
+        test_summary_op = tf.summary.merge([loss_summary, acc_summary, precision_summary, recall_summary])
+        test_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "test"))
+        test_summary_writer = tf.summary.FileWriter(test_summary_dir, sess.graph)
 
         # Checkpoint directory. TensorFlow assumes this directory already exists so we need to create it
-        checkpoint_dir = os.path.abspath(
-            os.path.join(FLAGS.log_dir, "checkpoints"))
+        checkpoint_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "checkpoints"))
         checkpoint_prefix = os.path.join(checkpoint_dir, "model")
         if not os.path.exists(checkpoint_dir):
             os.makedirs(checkpoint_dir)
-        saver = tf.train.Saver(var_list=tf.trainable_variables(), max_to_keep=FLAGS.num_checkpoints)
+        saver = tf.train.Saver(tf.global_variables().extend(tf.local_variables()), max_to_keep=FLAGS.num_checkpoints)
 
         # Write vocabulary
         # vocabulary_processor.save(os.path.join(FLAGS.log_dir, "vocab"))
@@ -205,12 +179,10 @@ with tf.Graph().as_default():
         initW = None
         if FLAGS.embedding_type in ['static', 'none_static', 'multiple_channels']:
             # initial matrix with random uniform
-            initW = np.random.uniform(-0.25, 0.25,
-                                      (len(vocabulary_processor.vocabulary_), FLAGS.embedding_dim))
+            initW = np.random.uniform(-0.25, 0.25, (len(vocabulary_processor.vocabulary_), FLAGS.embedding_dim))
             # load any vectors from the word2vec
             print("Load word2vec file {}\n".format(FLAGS.embedding_file))
-            word_vectors = KeyedVectors.load_word2vec_format(
-                FLAGS.embedding_file, binary=True)
+            word_vectors = KeyedVectors.load_word2vec_format(FLAGS.embedding_file, binary=True)
             for word in word_vectors.vocab:
                 idx = vocabulary_processor.vocabulary_.get(word)
                 if idx != 0:
@@ -223,6 +195,7 @@ with tf.Graph().as_default():
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
 
+
         def train_step(x_batch_train, y_batch_train):
             """
             A single training step
@@ -233,8 +206,7 @@ with tf.Graph().as_default():
                 cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
             }
             _, step_train, summaries, loss, accuracy, precision, recall = sess.run(
-                [train_op, global_step, train_summary_op, cnn.loss,
-                    cnn.accuracy, cnn.precision, cnn.recall],
+                [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy, cnn.precision, cnn.recall],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print(
@@ -245,6 +217,7 @@ with tf.Graph().as_default():
                                                                               precision,
                                                                               recall))
             train_summary_writer.add_summary(summaries, step_train)
+
 
         def dev_step(x_batch_evl, y_batch_evl, writer=None):
             """
@@ -259,11 +232,11 @@ with tf.Graph().as_default():
                 sess.run([global_step, dev_summary_op,
                           cnn.loss, cnn.accuracy, cnn.precision, cnn.recall], feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}, prc {:g}, rcl {:g}".
-                  format(time_str, step_evl,
-                         loss, accuracy, precision, recall))
+            print("{}: step {}, loss {:g}, acc {:g}, prc {:g}, rcl {:g}".format(time_str, step_evl,
+                                                                                loss, accuracy, precision, recall))
             if writer:
                 writer.add_summary(summaries, step_evl)
+
 
         def test_step(x_batch_test, y_batch_test, step_test, writer=None):
             """
@@ -284,6 +257,7 @@ with tf.Graph().as_default():
                 writer.add_summary(summaries, step_test)
             return np.sum(crr)
 
+
         # Generate batches
         batches = data_helpers.batch_generator(
             list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
@@ -293,18 +267,17 @@ with tf.Graph().as_default():
             x_batch, y_batch = zip(*batch)
             train_step(x_batch, y_batch)
             current_step = tf.train.global_step(sess, global_step)
-            # if current_step % FLAGS.evaluate_every == 0:
-            #     print("\nEvaluation:")
-            #     dev_batches = data_helpers.batch_generator(list(zip(x_dev, y_dev)), FLAGS.batch_size * 2)
-            #
-            #     for dev_batch in dev_batches:
-            #         x_dev_batch, y_dev_batch = zip(*dev_batch)
-            #         dev_step(x_dev_batch, y_dev_batch, writer=dev_summary_writer)
-            #     print("\n")
-            #     # dev_step(x_dev, y_dev, writer=dev_summary_writr)
+            if current_step % FLAGS.evaluate_every == 0:
+                print("\nEvaluation:")
+                dev_batches = data_helpers.batch_generator(list(zip(x_dev, y_dev)), FLAGS.batch_size * 2)
+
+                for dev_batch in dev_batches:
+                    x_dev_batch, y_dev_batch = zip(*dev_batch)
+                    dev_step(x_dev_batch, y_dev_batch, writer=dev_summary_writer)
+                print("\n")
+                # dev_step(x_dev, y_dev, writer=dev_summary_writr)
             if current_step % FLAGS.checkpoint_every == 0:
-                path = saver.save(sess, checkpoint_prefix,
-                                  global_step=current_step)
+                path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                 print("Saved model checkpoint to {}\n".format(path))
 
         # embedding summaries
@@ -314,19 +287,16 @@ with tf.Graph().as_default():
         config = projector.ProjectorConfig()
         embedding = config.embeddings.add()
         embedding.tensor_name = cnn.W.name
-        embedding.metadata_path = os.path.abspath(
-            os.path.join(FLAGS.log_dir, 'metadata.tsv'))
+        embedding.metadata_path = os.path.abspath(os.path.join(FLAGS.log_dir, 'metadata.tsv'))
         projector.visualize_embeddings(summary_writer, config)
 
         print("\n Testing:")
-        dev_batches = data_helpers.batch_generator(
-            list(zip(x_dev, y_dev)), FLAGS.batch_size)
+        dev_batches = data_helpers.batch_generator(list(zip(x_dev, y_dev)), FLAGS.batch_size)
         step = 0
         true_correct = 0
         for dev_batch in dev_batches:
             x_dev_batch, y_dev_batch = zip(*dev_batch)
-            correct = test_step(x_dev_batch, y_dev_batch,
-                                step, writer=test_summary_writer)
+            correct = test_step(x_dev_batch, y_dev_batch, step, writer=test_summary_writer)
             true_correct += np.sum(correct)
             step += 1
 
