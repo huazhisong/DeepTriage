@@ -19,7 +19,8 @@ tf.flags.DEFINE_string("data_file", "../../data/data_by_ocean/eclipse/sort-text-
 tf.flags.DEFINE_integer("batch_size", 1024, "Batch Size (default: 64)")
 tf.flags.DEFINE_string("--log_dir", "./runs/cnn_model", "log dir")
 tf.flags.DEFINE_boolean("eval_train", False, "Evaluate on all training data")
-tf.flags.DEFINE_float("dev_sample_percentage", .2, "Percentage of the training data to use for validation")
+tf.flags.DEFINE_float("dev_sample_percentage", .2,
+                      "Percentage of the training data to use for validation")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -34,13 +35,14 @@ print("")
 
 # CHANGE THIS: Load data. Load your own data here
 _, _, x_test, y_test, _ = \
-        data_helpers.load_data_labels(FLAGS.data_file, FLAGS.dev_sample_percentage)
+    data_helpers.load_data_labels(FLAGS.data_file, FLAGS.dev_sample_percentage)
 
 print("\nEvaluating...\n")
 
 # Evaluation
 # ==================================================
-checkpoint_file = tf.train.latest_checkpoint(os.path.abspath(os.path.join(FLAGS.log_dir, "checkpoints")))
+checkpoint_file = tf.train.latest_checkpoint(
+    os.path.abspath(os.path.join(FLAGS.log_dir, "checkpoints")))
 graph = tf.Graph()
 with graph.as_default() as g:
     session_conf = tf.ConfigProto(
@@ -71,7 +73,8 @@ with graph.as_default() as g:
         dev_summary_dir = os.path.abspath(os.path.join(FLAGS.log_dir, "summaries", "evaluations"))
         summary_writer = tf.summary.FileWriter(dev_summary_dir, g)
         # Generate batches for one epoch
-        batches = data_helpers.batch_iter(list(zip(x_test, y_test)), FLAGS.batch_size, 1, shuffle=True)
+        batches = data_helpers.batch_iter(
+            list(zip(x_test, y_test)), FLAGS.batch_size, 1, shuffle=True)
 
         # Collect the predictions here
         all_predictions = []
@@ -96,6 +99,3 @@ with graph.as_default() as g:
         print("Saving evaluation to {0}".format(out_path))
         with open(out_path, 'w') as f:
             csv.writer(f).writerows(predictions_human_readable)
-
-
-
