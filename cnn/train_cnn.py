@@ -295,7 +295,7 @@ with tf.Graph().as_default():
                 recall_at_5 = \
                 sess.run([test_summary_op,
                           cnn.loss, cnn.accuracy_at_1,
-                          cnn.correct,
+                          cnn.correct_at_1,
                           cnn.acc_op,
                           cnn.precision_op_at_1,
                           cnn.precision_op_at_2,
