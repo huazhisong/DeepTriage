@@ -144,27 +144,65 @@ with tf.Graph().as_default():
 
         # Summaries for loss and accuracy
         loss_summary = tf.summary.scalar("loss", cnn.loss)
-        acc_summary = tf.summary.scalar("accuracy", cnn.accuracy)
-        precision_summary = tf.summary.scalar("precision", cnn.precision)
-        recall_summary = tf.summary.scalar("recall", cnn.recall)
+        acc_summary = tf.summary.scalar("acc", cnn.acc_op)
+        accuracy_summary_at_1 = \
+            tf.summary.scalar("accuracy_at_1", cnn.accuracy_at_1)
+        precision_summary_at_1 = \
+            tf.summary.scalar("precision_at_1", cnn.precision_op_at_1)
+        recall_summary_at_1 = \
+            tf.summary.scalar("recall_at_1", cnn.recall_op_at_1)
+        accuracy_summary_at_2 = \
+            tf.summary.scalar("accuracy_at_2", cnn.accuracy_at_2)
+        precision_summary_at_2 = \
+            tf.summary.scalar("precision_at_2", cnn.precision_op_at_2)
+        recall_summary_at_2 = \
+            tf.summary.scalar("recall_at_2", cnn.recall_op_at_2)
+        accuracy_summary_at_3 = \
+            tf.summary.scalar("accuracy_at_3", cnn.accuracy_at_3)
+        precision_summary_at_3 = \
+            tf.summary.scalar("precision_at_3", cnn.precision_op_at_3)
+        recall_summary_at_3 = \
+            tf.summary.scalar("recall_at_3", cnn.recall_op_at_3)
+        accuracy_summary_at_4 = \
+            tf.summary.scalar("accuracy_at_4", cnn.accuracy_at_4)
+        precision_summary_at_4 = \
+            tf.summary.scalar("precision_at_4", cnn.precision_op_at_4)
+        recall_summary_at_4 = \
+            tf.summary.scalar("recall_at_4", cnn.recall_op_at_4)
+        accuracy_summary_at_5 = \
+            tf.summary.scalar("accuracy_at_5", cnn.accuracy_at_5)
+        precision_summary_at_5 = \
+            tf.summary.scalar("precision_at_5", cnn.precision_op_at_5)
+        recall_summary_at_5 = \
+            tf.summary.scalar("recall_at_5", cnn.recall_op_at_5)
+
         # Train Summaries
         train_summary_op = tf.summary.merge(
-            [loss_summary, acc_summary, grad_summaries_merged])
+            [loss_summary,
+             accuracy_summary_at_1,
+             accuracy_summary_at_2,
+             accuracy_summary_at_3,
+             accuracy_summary_at_4,
+             accuracy_summary_at_5,
+             grad_summaries_merged])
         train_summary_dir = os.path.abspath(
             os.path.join(FLAGS.checkpointDir, "summaries", "train"))
         train_summary_writer = tf.summary.FileWriter(
             train_summary_dir, sess.graph)
-
-        # validation summaries
-        dev_summary_op = tf.summary.merge(
-            [loss_summary, acc_summary, precision_summary, recall_summary])
-        dev_summary_dir = os.path.abspath(os.path.join(
-            FLAGS.checkpointDir, "summaries", "validation"))
-        dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
-
         # test summaries
         test_summary_op = tf.summary.merge(
-            [loss_summary, acc_summary, precision_summary, recall_summary])
+            [loss_summary,
+             acc_summary,
+             precision_summary_at_1,
+             precision_summary_at_2,
+             precision_summary_at_3,
+             precision_summary_at_4,
+             precision_summary_at_5,
+             recall_summary_at_1,
+             recall_summary_at_2,
+             recall_summary_at_3,
+             recall_summary_at_4,
+             recall_summary_at_5])
         test_summary_dir = os.path.abspath(
             os.path.join(FLAGS.checkpointDir, "summaries", "test"))
         test_summary_writer = tf.summary.FileWriter(
@@ -217,16 +255,28 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch_train,
                 cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
             }
-            _, step_train, summaries, loss, accuracy = sess.run(
-                [train_op, global_step, train_summary_op, cnn.loss,
-                    cnn.accuracy],
-                feed_dict)
+            _, step_train, summaries, loss, \
+                acc_at_1, acc_at_2, acc_at_3, acc_at_4, acc_at_5 \
+                = sess.run(
+                    [train_op, global_step, train_summary_op, cnn.loss,
+                     cnn.accuracy_at_1,
+                     cnn.accuracy_at_2,
+                     cnn.accuracy_at_3,
+                     cnn.accuracy_at_4,
+                     cnn.accuracy_at_5],
+                    feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print(
-                "{}: step {}, loss {:g}, acc {:g}".format(time_str,
-                                                          step_train,
-                                                          loss,
-                                                          accuracy))
+                "{}: step {}, loss {:g}, acc_1 {:g}, \
+                    acc_2 {:g}, acc_3 {:g}, acc_4 {:g},\
+                     acc_5 {:g}, ".format(time_str,
+                                          step_train,
+                                          loss,
+                                          acc_at_1,
+                                          acc_at_2,
+                                          acc_at_3,
+                                          acc_at_4,
+                                          acc_at_5))
             train_summary_writer.add_summary(summaries, step_train)
 
         def test_step(x_batch_test, y_batch_test, step_test, writer=None):
@@ -238,18 +288,44 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch_test,
                 cnn.dropout_keep_prob: 1.0
             }
-            summaries, loss, accuracy, crr, precision, recall = \
+            summaries, loss, accuracy, crr, acc,\
+                precision_at_1, precision_at_2, \
+                precision_at_3, precision_at_4, precision_at_5, \
+                recall_at_1, recall_at_2, recall_at_3, recall_at_4, \
+                recall_at_5 = \
                 sess.run([test_summary_op,
-                          cnn.loss, cnn.accuracy,
-                          cnn.correct, cnn.precision,
-                          cnn.recall],
+                          cnn.loss, cnn.accuracy_at_1,
+                          cnn.correct,
+                          cnn.acc_op,
+                          cnn.precision_op_at_1,
+                          cnn.precision_op_at_2,
+                          cnn.precision_op_at_3,
+                          cnn.precision_op_at_4,
+                          cnn.precision_op_at_5,
+                          cnn.recall_op_at_1,
+                          cnn.recall_op_at_2,
+                          cnn.recall_op_at_3,
+                          cnn.recall_op_at_4,
+                          cnn.recall_op_at_5],
                          feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}, prc {:g}, rcl {:g}".
+            print("{}: step {}, loss {:g}, accuracy {:g}, acc {:g},\
+                prc_1 {:g}, prc_2 {:g}, prc_3 {:g}, prc_4 {:g}, prc_5 {:g}, \
+                rcl_1 {:g}, rcl_2 {:g}, rcl_3 {:g}, rcl_4 {:g}, rcl_5 {:g}, ".
                   format(time_str,
                          step_test, loss,
-                         accuracy, precision,
-                         recall))
+                         accuracy, acc,
+                         precision_at_1,
+                         precision_at_2,
+                         precision_at_3,
+                         precision_at_4,
+                         precision_at_5,
+                         recall_at_1,
+                         recall_at_2,
+                         recall_at_3,
+                         recall_at_4,
+                         recall_at_5))
+
             if writer:
                 writer.add_summary(summaries, step_test)
             return np.sum(crr)
@@ -262,12 +338,15 @@ with tf.Graph().as_default():
         for batch in batches:
             x_batch, y_batch = zip(*batch)
             train_step(x_batch, y_batch)
-            current_step = tf.train.global_step(sess, global_step)
-            if current_step % FLAGS.checkpoint_every == 0:
-                path = saver.save(sess, checkpoint_prefix,
-                                  global_step=current_step)
-                print("Saved model checkpoint to {}\n".format(path))
-
+            # current_step = tf.train.global_step(sess, global_step)
+            # if current_step % FLAGS.checkpoint_every == 0:
+            #     path = saver.save(sess, checkpoint_prefix,
+            #                       global_step=current_step)
+            #     print("Saved model checkpoint to {}\n".format(path))
+        current_step = tf.train.global_step(sess, global_step)
+        path = saver.save(sess, checkpoint_prefix,
+                          global_step=current_step)
+        print("Saved model checkpoint to {}\n".format(path))
         # embedding summaries
         summary_dir = os.path.abspath(os.path.join(FLAGS.checkpointDir))
         summary_writer = tf.summary.FileWriter(test_summary_dir)
@@ -292,6 +371,6 @@ with tf.Graph().as_default():
             step += 1
 
         numer_iter = int((len(y_dev) - 1) / FLAGS.batch_size) + 1
-        print('%s: total accuracy @ 3 = %.3f' %
+        print('%s: total accuracy @ 1 = %.8f' %
               (datetime.datetime.now().isoformat(),
                true_correct / (numer_iter * FLAGS.batch_size)))

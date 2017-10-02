@@ -123,22 +123,88 @@ class TextCNN(object):
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
 
         label = tf.arg_max(self.input_y, 1)
+        prediction = tf.arg_max(self.logits, 1)
         # Accuracy
         with tf.name_scope("accuracy"):
-            self.correct = tf.nn.in_top_k(self.logits, label, top_k)
-            self.accuracy = tf.reduce_mean(tf.cast(self.correct, tf.float32))
-
+            self.correct_at_1 = tf.nn.in_top_k(self.logits, label, 1)
+            self.accuracy_at_1 =\
+                tf.reduce_mean(tf.cast(self.correct, tf.float32))
+            self.correct_at_2 = tf.nn.in_top_k(self.logits, label, 2)
+            self.accuracy_at_2 = \
+                tf.reduce_mean(tf.cast(self.correct, tf.float32))
+            self.correct_at_3 = tf.nn.in_top_k(self.logits, label, 3)
+            self.accuracy_at_3 = \
+                tf.reduce_mean(tf.cast(self.correct, tf.float32))
+            self.correct_at_4 = tf.nn.in_top_k(self.logits, label, 4)
+            self.accuracy_at_4 = \
+                tf.reduce_mean(tf.cast(self.correct, tf.float32))
+            self.correct_at_5 = tf.nn.in_top_k(self.logits, label, 5)
+            self.accuracy_at_5 = \
+                tf.reduce_mean(tf.cast(self.correct, tf.float32))
         # Evaluation
         with tf.name_scope("evaluation"):
-            self.precision_op, self.precision = \
+            self.acc, self.acc_op = \
+                tf.contrib.metrics.streaming_accuracy(
+                    predictions=prediction,
+                    labels=label,
+                    name='acc_at_1')
+            self.precision_at_1, self.precision_op_at_1 = \
                 tf.contrib.metrics.streaming_sparse_precision_at_k(
                     predictions=self.logits,
                     labels=label,
-                    k=top_k,
-                    name="precision")
-            self.recall_op, self.recall = \
+                    k=1,
+                    name="precision_at_1")
+            self.recall_at_1, self.recall_op_at_1 = \
                 tf.contrib.metrics.streaming_sparse_recall_at_k(
                     predictions=self.logits,
                     labels=label,
-                    k=top_k,
-                    name="recall")
+                    k=1,
+                    name="recall_at1")
+            self.precision_at_2, self.precision_op_at_2 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=2,
+                    name="precision_at_1")
+            self.recall_at_2, self.recall_op_at_2 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=2,
+                    name="recall_at1")
+            self.precision_at_3, self.precision_op_at_3 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=3,
+                    name="precision_at_1")
+            self.recall_at_3, self.recall_op_at_3 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=3,
+                    name="recall_at1")
+            self.precision_at_4, self.precision_op_at_4 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=4,
+                    name="precision_at_1")
+            self.recall_at_4, self.recall_op_at_4 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=4,
+                    name="recall_at1")
+            self.precision_at_5, self.precision_op_at_5 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=5,
+                    name="precision_at_1")
+            self.recall_at_5, self.recall_op_at_5 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=5,
+                    name="recall_at1")
