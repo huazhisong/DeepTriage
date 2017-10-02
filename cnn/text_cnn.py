@@ -128,19 +128,19 @@ class TextCNN(object):
         with tf.name_scope("accuracy"):
             self.correct_at_1 = tf.nn.in_top_k(self.logits, label, 1)
             self.accuracy_at_1 =\
-                tf.reduce_mean(tf.cast(self.correct, tf.float32))
+                tf.reduce_mean(tf.cast(self.correct_at_1, tf.float32))
             self.correct_at_2 = tf.nn.in_top_k(self.logits, label, 2)
             self.accuracy_at_2 = \
-                tf.reduce_mean(tf.cast(self.correct, tf.float32))
+                tf.reduce_mean(tf.cast(self.correct_at_2, tf.float32))
             self.correct_at_3 = tf.nn.in_top_k(self.logits, label, 3)
             self.accuracy_at_3 = \
-                tf.reduce_mean(tf.cast(self.correct, tf.float32))
+                tf.reduce_mean(tf.cast(self.correct_at_3, tf.float32))
             self.correct_at_4 = tf.nn.in_top_k(self.logits, label, 4)
             self.accuracy_at_4 = \
-                tf.reduce_mean(tf.cast(self.correct, tf.float32))
+                tf.reduce_mean(tf.cast(self.correct_at_4, tf.float32))
             self.correct_at_5 = tf.nn.in_top_k(self.logits, label, 5)
             self.accuracy_at_5 = \
-                tf.reduce_mean(tf.cast(self.correct, tf.float32))
+                tf.reduce_mean(tf.cast(self.correct_at_5, tf.float32))
         # Evaluation
         with tf.name_scope("evaluation"):
             self.acc, self.acc_op = \
