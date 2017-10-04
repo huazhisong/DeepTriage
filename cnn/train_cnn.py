@@ -47,6 +47,9 @@ tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer(
     "num_epochs", 120, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer(
+    "require_improvement", 1000,
+    "Require improvement steps for training data (default: 1000)")
+tf.flags.DEFINE_integer(
     "evaluate_every", 10000,
     "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 10000,
@@ -265,19 +268,21 @@ with tf.Graph().as_default():
                      cnn.accuracy_at_4,
                      cnn.accuracy_at_5],
                     feed_dict)
-            time_str = datetime.datetime.now().isoformat()
-            print(
-                "{}: step {}, loss {:g}, acc_1 {:g}, \
-                    acc_2 {:g}, acc_3 {:g}, acc_4 {:g},\
-                     acc_5 {:g}, ".format(time_str,
-                                          step_train,
-                                          loss,
-                                          acc_at_1,
-                                          acc_at_2,
-                                          acc_at_3,
-                                          acc_at_4,
-                                          acc_at_5))
-            train_summary_writer.add_summary(summaries, step_train)
+            if step_train % FLAGS.evaluate_every == 0:
+                time_str = datetime.datetime.now().isoformat()
+                print(
+                    "{}: step {}, loss {:g}, acc_1 {:g}, \
+                        acc_2 {:g}, acc_3 {:g}, acc_4 {:g},\
+                         acc_5 {:g}, ".format(time_str,
+                                              step_train,
+                                              loss,
+                                              acc_at_1,
+                                              acc_at_2,
+                                              acc_at_3,
+                                              acc_at_4,
+                                              acc_at_5))
+                train_summary_writer.add_summary(summaries, step_train)
+            return acc_at_1
 
         def test_step(x_batch_test, y_batch_test, step_test, writer=None):
             """
@@ -335,18 +340,26 @@ with tf.Graph().as_default():
             list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
 
         # Training loop. For each batch...
+        best_accuracy = 0.0
+        last_improvement_step = 0
         for batch in batches:
             x_batch, y_batch = zip(*batch)
-            train_step(x_batch, y_batch)
-            # current_step = tf.train.global_step(sess, global_step)
-            # if current_step % FLAGS.checkpoint_every == 0:
-            #     path = saver.save(sess, checkpoint_prefix,
-            #                       global_step=current_step)
-            #     print("Saved model checkpoint to {}\n".format(path))
+            accuracy = train_step(x_batch, y_batch)
+            current_step = tf.train.global_step(sess, global_step)            
+            if current_step % FLAGS.checkpoint_every == 0:
+                path = saver.save(sess, checkpoint_prefix,
+                                  global_step=current_step)
+                print("Saved model checkpoint to {}\n".format(path))
+            if accuracy > best_accuracy:
+                best_accuracy = accuracy
+                last_improvement_step = current_step
+            if current_step - last_improvement_step > FLAGS.require_improvement:
+                print('no more improving!')
+                break
         current_step = tf.train.global_step(sess, global_step)
         path = saver.save(sess, checkpoint_prefix,
                           global_step=current_step)
-        print("Saved model checkpoint to {}\n".format(path))
+        print("Saved newest model checkpoint to {}\n".format(path))
         # embedding summaries
         summary_dir = os.path.abspath(os.path.join(FLAGS.checkpointDir))
         summary_writer = tf.summary.FileWriter(test_summary_dir)
