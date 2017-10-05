@@ -345,7 +345,7 @@ with tf.Graph().as_default():
         for batch in batches:
             x_batch, y_batch = zip(*batch)
             accuracy = train_step(x_batch, y_batch)
-            current_step = tf.train.global_step(sess, global_step)            
+            current_step = tf.train.global_step(sess, global_step)
             if current_step % FLAGS.checkpoint_every == 0:
                 path = saver.save(sess, checkpoint_prefix,
                                   global_step=current_step)
@@ -353,7 +353,8 @@ with tf.Graph().as_default():
             if accuracy > best_accuracy:
                 best_accuracy = accuracy
                 last_improvement_step = current_step
-            if current_step - last_improvement_step > FLAGS.require_improvement:
+            if current_step - last_improvement_step > \
+                FLAGS.require_improvement:
                 print('no more improving!')
                 break
         current_step = tf.train.global_step(sess, global_step)
