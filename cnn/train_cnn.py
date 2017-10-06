@@ -353,8 +353,8 @@ with tf.Graph().as_default():
             if accuracy > best_accuracy:
                 best_accuracy = accuracy
                 last_improvement_step = current_step
-            if current_step - last_improvement_step > \
-                FLAGS.require_improvement:
+            if current_step - last_improvement_step >\
+                    FLAGS.require_improvement and best_accuracy == 1.0:
                 print('no more improving!')
                 break
         current_step = tf.train.global_step(sess, global_step)
