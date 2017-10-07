@@ -45,12 +45,12 @@ tf.flags.DEFINE_float("decay_rate", 0.96, "decay rate")
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer(
-    "num_epochs", 120, "Number of training epochs (default: 200)")
+    "num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer(
-    "require_improvement", 1000,
+    "require_improvement", 10000,
     "Require improvement steps for training data (default: 1000)")
 tf.flags.DEFINE_integer(
-    "evaluate_every", 10000,
+    "evaluate_every", 500,
     "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 10000,
                         "Save model after this many steps (default: 100)")
@@ -387,4 +387,4 @@ with tf.Graph().as_default():
         numer_iter = int((len(y_dev) - 1) / FLAGS.batch_size) + 1
         print('%s: total accuracy @ 1 = %.8f' %
               (datetime.datetime.now().isoformat(),
-               true_correct / (numer_iter * FLAGS.batch_size)))
+              true_correct / (numer_iter * FLAGS.batch_size)))
