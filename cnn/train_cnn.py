@@ -83,7 +83,7 @@ tf.gfile.MakeDirs(FLAGS.checkpointDir)
 # Load data
 print("Loading data...")
 
-data_dir = "../../data/data_by_ocean/eclipse/"
+data_dir = "../../data/data_by_ocean/mozilla/"
 train_index = 1
 train_files = [data_dir + str(i) + '.csv' for i in range(train_index)]
 test_files = [data_dir +

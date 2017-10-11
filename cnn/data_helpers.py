@@ -4,14 +4,13 @@ import re
 from sklearn.preprocessing import LabelBinarizer
 from tensorflow.contrib import learn
 import tensorflow as tf
-import pdb
-import collections
 
 
 def clean_str(string):
     """
     Tokenization/string cleaning for all datasets except for SST.
-    Original taken from https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
+    Original taken from
+    https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
     """
     string = re.sub(r"[^A-Za-z0-9(),!?\'\`]", " ", string)
     string = re.sub(r"\'s", " \'s", string)
@@ -31,7 +30,8 @@ def clean_str(string):
 
 def load_data_and_labels(positive_data_file, negative_data_file):
     """
-    Loads MR polarity data from files, splits the data into words and generates labels.
+    Loads MR polarity data from files,
+    splits the data into words and generates labels.
     Returns split sentences and labels.
     """
     # Load data from files
@@ -49,9 +49,11 @@ def load_data_and_labels(positive_data_file, negative_data_file):
     return [x_text, y]
 
 
-def load_data_labels(data_files, labels_files, test_data_files, test_labels_files):
+def load_data_labels(data_files,
+                     labels_files, test_data_files, test_labels_files):
     """
-    Loads MR polarity data from files, splits the data into words and generates labels.
+    Loads MR polarity data from files,
+    splits the data into words and generates labels.
     Returns split sentences and labels.
     """
     data = []
@@ -88,7 +90,8 @@ def load_data_labels(data_files, labels_files, test_data_files, test_labels_file
 
 def load_data_labels(data_file, dev_sample_percentage=0.2):
     """
-    Loads MR polarity data from files, splits the data into words and generates labels.
+    Loads MR polarity data from files,
+    splits the data into words and generates labels.
     Returns split sentences and labels.
     """
 
@@ -104,7 +107,8 @@ def load_data_labels(data_file, dev_sample_percentage=0.2):
     # document length取90%的分位数
     document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in x_train])
     document_length = np.int64(document_length_df.quantile(0.8))
-    vocabulary_processor = learn.preprocessing.VocabularyProcessor(document_length)
+    vocabulary_processor = learn.preprocessing.VocabularyProcessor(
+        document_length)
     x_train = np.array(list(vocabulary_processor.fit_transform(x_train)))
     x_dev = np.array(list(vocabulary_processor.transform(x_dev)))
 
@@ -114,7 +118,8 @@ def load_data_labels(data_file, dev_sample_percentage=0.2):
     y_dev = lb.transform(y_dev)
 
     print("Document length: %d" % document_length)
-    print("Vocabulary Size: {:d}".format(len(vocabulary_processor.vocabulary_)))
+    print("Vocabulary Size: {:d}".format(
+        len(vocabulary_processor.vocabulary_)))
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
 
     return x_train, y_train, x_dev, y_dev, vocabulary_processor
@@ -162,7 +167,8 @@ def load_files(train_files, dev_files):
     document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in x_train])
     document_length = np.int64(document_length_df.quantile(0.8))
     # document_length = np.max([len(xx.split(" ")) for xx in x_train])
-    vocabulary_processor = learn.preprocessing.VocabularyProcessor(document_length)
+    vocabulary_processor = \
+        learn.preprocessing.VocabularyProcessor(document_length)
     x_train = np.array(list(vocabulary_processor.fit_transform(x_train)))
     x_dev = np.array(list(vocabulary_processor.transform(x_dev)))
 
@@ -172,7 +178,8 @@ def load_files(train_files, dev_files):
     y_dev = lb.transform(y_dev)
 
     print("Document length: %d" % document_length)
-    print("Vocabulary Size: {:d}".format(len(vocabulary_processor.vocabulary_)))
+    print("Vocabulary Size: {:d}".format(
+        len(vocabulary_processor.vocabulary_)))
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
 
     return x_train, y_train, x_dev, y_dev, vocabulary_processor
@@ -208,7 +215,8 @@ def batch_generator(data, batch_size, num_epochs=1, shuffle=False):
                 rest_part = shuffled_data[start_index:]
                 shuffle_indices = np.random.permutation(np.arange(data_size))
                 shuffled_data = shuffled_data[shuffle_indices]
-                new_part = shuffled_data[:batch_size - (data_size - start_index)]
+                new_part = shuffled_data[:batch_size -
+                                         (data_size - start_index)]
                 yield np.concatenate((rest_part, new_part), axis=0)
 
 
@@ -224,7 +232,9 @@ def read_bug(filename_queue):
     return text, fixer
 
 
-def generate_bug_and_label_batch(filenames, min_after_dequeue, batch_size, num_epochs=None, shuffle=False):
+def generate_bug_and_label_batch(filenames,
+                                 min_after_dequeue,
+                                 batch_size, num_epochs=None, shuffle=False):
     filename_queue = tf.train.string_input_producer(
         filenames, num_epochs=num_epochs, shuffle=False)
     example, label = read_bug(filename_queue)
@@ -238,8 +248,10 @@ def generate_bug_and_label_batch(filenames, min_after_dequeue, batch_size, num_e
             [example, label], batch_size=batch_size, capacity=capacity)
     return example_batch, label_batch
 
+
 if __name__ == "__main__":
     data_dir = "E:/song_ws/data/data_by_ocean/eclipse/"
     train_files = [data_dir + str(i) + '.csv' for i in range(2)]
     test_files = [data_dir + str(i) + '.csv' for i in range(2, 3)]
-    x_train, y_train, x_dev, y_dev, vocabulary_processor = load_files(train_files, test_files)
+    x_train, y_train, x_dev, y_dev, vocabulary_processor = load_files(
+        train_files, test_files)
