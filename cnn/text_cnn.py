@@ -124,6 +124,10 @@ class TextCNN(object):
 
         label = tf.arg_max(self.input_y, 1)
         prediction = tf.arg_max(self.logits, 1)
+        with tf.name_scope("prdiction_top_k"):
+            _, self.prediction_top_k_indice = \
+                tf.nn.top_k(self.logits, 1)
+
         # Accuracy
         with tf.name_scope("accuracy"):
             self.correct_at_1 = tf.nn.in_top_k(self.logits, label, 1)
@@ -143,11 +147,11 @@ class TextCNN(object):
                 tf.reduce_mean(tf.cast(self.correct_at_5, tf.float32))
         # Evaluation
         with tf.name_scope("evaluation"):
-            self.acc, self.acc_op = \
+            self.streaming_accuracy, self.streaming_accuray_op = \
                 tf.contrib.metrics.streaming_accuracy(
                     predictions=prediction,
                     labels=label,
-                    name='acc_at_1')
+                    name='streaming_accuracy')
             self.precision_at_1, self.precision_op_at_1 = \
                 tf.contrib.metrics.streaming_sparse_precision_at_k(
                     predictions=self.logits,

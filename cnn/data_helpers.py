@@ -145,7 +145,7 @@ def batch_iter(data, batch_size, num_epochs=1, shuffle=False):
             yield shuffled_data[start_index: end_index]
 
 
-def load_files(train_files, dev_files):
+def load_files(train_files, dev_files, class_file):
 
     data_list = list()
     for file in train_files:
@@ -176,6 +176,7 @@ def load_files(train_files, dev_files):
     lb = LabelBinarizer()
     y_train = lb.fit_transform(y_train)
     y_dev = lb.transform(y_dev)
+    np.savetxt(class_file, lb.classes_, fmt="%s")
 
     print("Document length: %d" % document_length)
     print("Vocabulary Size: {:d}".format(

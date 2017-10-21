@@ -82,14 +82,15 @@ tf.gfile.MakeDirs(FLAGS.checkpointDir)
 
 # Load data
 print("Loading data...")
-
-data_dir = "../../data/data_by_ocean/mozilla/"
+train_data = "mozilla/"
 train_index = 1
+data_dir = "../../data/data_by_ocean/" + train_data
+class_file = data_dir + "class_" + str(train_index) + ".csv"
 train_files = [data_dir + str(i) + '.csv' for i in range(train_index)]
 test_files = [data_dir +
               str(i) + '.csv' for i in range(train_index, train_index + 1)]
 x_train, y_train, x_dev, y_dev, vocabulary_processor = data_helpers.load_files(
-    train_files, test_files)
+    train_files, test_files, class_file)
 
 
 # Training
@@ -147,7 +148,8 @@ with tf.Graph().as_default():
 
         # Summaries for loss and accuracy
         loss_summary = tf.summary.scalar("loss", cnn.loss)
-        acc_summary = tf.summary.scalar("acc", cnn.acc_op)
+        streaming_accuray_summary =\
+            tf.summary.scalar("streaming_accuray", cnn.streaming_accuray_op)
         accuracy_summary_at_1 = \
             tf.summary.scalar("accuracy_at_1", cnn.accuracy_at_1)
         precision_summary_at_1 = \
@@ -195,7 +197,7 @@ with tf.Graph().as_default():
         # test summaries
         test_summary_op = tf.summary.merge(
             [loss_summary,
-             acc_summary,
+             streaming_accuray_summary,
              precision_summary_at_1,
              precision_summary_at_2,
              precision_summary_at_3,
@@ -293,15 +295,23 @@ with tf.Graph().as_default():
                 cnn.input_y: y_batch_test,
                 cnn.dropout_keep_prob: 1.0
             }
-            summaries, loss, accuracy, crr, acc,\
+            summaries, loss,\
+                correct_at_1, correct_at_2,\
+                correct_at_3, correct_at_4, correct_at_5,\
+                streaming_accuray,\
                 precision_at_1, precision_at_2, \
                 precision_at_3, precision_at_4, precision_at_5, \
-                recall_at_1, recall_at_2, recall_at_3, recall_at_4, \
-                recall_at_5 = \
+                recall_at_1, recall_at_2,\
+                recall_at_3, recall_at_4, recall_at_5,\
+                prediction_top_k_indice = \
                 sess.run([test_summary_op,
-                          cnn.loss, cnn.accuracy_at_1,
+                          cnn.loss,
                           cnn.correct_at_1,
-                          cnn.acc_op,
+                          cnn.correct_at_2,
+                          cnn.correct_at_3,
+                          cnn.correct_at_4,
+                          cnn.correct_at_5,
+                          cnn.streaming_accuray_op,
                           cnn.precision_op_at_1,
                           cnn.precision_op_at_2,
                           cnn.precision_op_at_3,
@@ -311,15 +321,16 @@ with tf.Graph().as_default():
                           cnn.recall_op_at_2,
                           cnn.recall_op_at_3,
                           cnn.recall_op_at_4,
-                          cnn.recall_op_at_5],
+                          cnn.recall_op_at_5,
+                          cnn.prediction_top_k_indice],
                          feed_dict)
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, accuracy {:g}, acc {:g},\
+            print("{}: step {}, loss {:g}, streaming_accuracy {:g},\
                 prc_1 {:g}, prc_2 {:g}, prc_3 {:g}, prc_4 {:g}, prc_5 {:g}, \
                 rcl_1 {:g}, rcl_2 {:g}, rcl_3 {:g}, rcl_4 {:g}, rcl_5 {:g}, ".
                   format(time_str,
                          step_test, loss,
-                         accuracy, acc,
+                         streaming_accuray,
                          precision_at_1,
                          precision_at_2,
                          precision_at_3,
@@ -333,7 +344,7 @@ with tf.Graph().as_default():
 
             if writer:
                 writer.add_summary(summaries, step_test)
-            return np.sum(crr)
+            return prediction_top_k_indice,(np.sum(correct_at_1), np.sum(correct_at_2), np.sum(correct_at_3), np.sum(correct_at_4), np.sum(correct_at_5))
 
         # Generate batches
         batches = data_helpers.batch_generator(
@@ -376,15 +387,26 @@ with tf.Graph().as_default():
         dev_batches = data_helpers.batch_generator(
             list(zip(x_dev, y_dev)), FLAGS.batch_size)
         step = 0
-        true_correct = 0
+        prediction_top_k_indice = []
+        real_labels_indice = []
+        true_correct = np.zeros((1, y_train.shape[1]))
         for dev_batch in dev_batches:
             x_dev_batch, y_dev_batch = zip(*dev_batch)
-            correct = test_step(x_dev_batch, y_dev_batch,
-                                step, writer=test_summary_writer)
-            true_correct += np.sum(correct)
+            prediction, correct = test_step(x_dev_batch, y_dev_batch,
+                                            step, writer=test_summary_writer)
+            true_correct += correct
+            prediction_top_k_indice += prediction
+            real_labels_indice += np.argmax(y_dev_batch, 1)
             step += 1
 
         numer_iter = int((len(y_dev) - 1) / FLAGS.batch_size) + 1
-        print('%s: total accuracy @ 1 = %.8f' %
-              (datetime.datetime.now().isoformat(),
-              true_correct / (numer_iter * FLAGS.batch_size)))
+        total_nums = numer_iter * FLAGS.batch_size
+        for k in range(5):
+            print('%s: total accuracy @ %d = %.8f' %
+                  datetime.datetime.now().isoformat(),
+                  k,
+                  (true_correct[k] / total_nums))
+        fixer_file = data_dir + "fixer_" + str(train_index) + ".csv"
+        prediction_file = data_dir + "prediction_" + str(train_index) + ".csv"
+        np.savetxt(fixer_file, real_labels_indice, fmt="%s", delimiter=',')
+        np.savetxt(prediction_file, real_labels_indice, fmt="%s", delimiter=',')
