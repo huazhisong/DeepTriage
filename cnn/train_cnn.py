@@ -31,7 +31,7 @@ tf.flags.DEFINE_string("checkpointDir", "./runs/cnn_model", "log dir")
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 300,
                         "Dimensionality of character embedding (default: 128)")
-tf.flags.DEFINE_string("filter_sizes", "3,4,5,120,150,180",
+tf.flags.DEFINE_string("filter_sizes", "3,4,5",
                        "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer(
     "num_filters", 100, "Number of filters per filter size (default: 128)")
