@@ -85,7 +85,10 @@ print("Loading data...")
 train_data = "mozilla/"
 train_index = 1
 data_dir = "../../data/data_by_ocean/" + train_data
-class_file = data_dir + "class_" + str(train_index) + ".csv"
+data_results = data_dir + "results/"
+if not tf.gfile.Exists(data_results):
+    tf.gfile.MakeDirs(data_results)
+class_file = data_results + "class_" + str(train_index) + ".csv"
 train_files = [data_dir + str(i) + '.csv' for i in range(train_index)]
 test_files = [data_dir +
               str(i) + '.csv' for i in range(train_index, train_index + 1)]
@@ -395,18 +398,19 @@ with tf.Graph().as_default():
             prediction, correct = test_step(x_dev_batch, y_dev_batch,
                                             step, writer=test_summary_writer)
             true_correct += correct
-            prediction_top_k_indice += prediction
-            real_labels_indice += np.argmax(y_dev_batch, 1)
+            prediction_top_k_indice.extend(prediction)
+            real_labels_indice.extend(np.argmax(y_dev_batch, 1))
             step += 1
 
         numer_iter = int((len(y_dev) - 1) / FLAGS.batch_size) + 1
         total_nums = numer_iter * FLAGS.batch_size
         for k in range(5):
             print('%s: total accuracy @ %d = %.8f' %
-                  datetime.datetime.now().isoformat(),
-                  k,
-                  (true_correct[k] / total_nums))
-        fixer_file = data_dir + "fixer_" + str(train_index) + ".csv"
-        prediction_file = data_dir + "prediction_" + str(train_index) + ".csv"
+                  (datetime.datetime.now().isoformat(),
+                   k,
+                   (true_correct[k] / total_nums)))
+        fixer_file = data_results + "fixer_" + str(train_index) + ".csv"
+        prediction_file = data_results + "prediction_" +\
+            str(train_index) + ".csv"
         np.savetxt(fixer_file, real_labels_indice, fmt="%s", delimiter=',')
-        np.savetxt(prediction_file, real_labels_indice, fmt="%s", delimiter=',')
+        np.savetxt(prediction_file, prediction_top_k_indice, fmt="%s", delimiter=',')

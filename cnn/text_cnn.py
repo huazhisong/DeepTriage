@@ -126,7 +126,7 @@ class TextCNN(object):
         prediction = tf.arg_max(self.logits, 1)
         with tf.name_scope("prdiction_top_k"):
             _, self.prediction_top_k_indice = \
-                tf.nn.top_k(self.logits, 1)
+                tf.nn.top_k(self.logits, 15)
 
         # Accuracy
         with tf.name_scope("accuracy"):
