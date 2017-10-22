@@ -392,7 +392,7 @@ with tf.Graph().as_default():
         step = 0
         prediction_top_k_indice = []
         real_labels_indice = []
-        true_correct = np.zeros((1, y_train.shape[1]))
+        true_correct = np.zeros(5)
         for dev_batch in dev_batches:
             x_dev_batch, y_dev_batch = zip(*dev_batch)
             prediction, correct = test_step(x_dev_batch, y_dev_batch,
