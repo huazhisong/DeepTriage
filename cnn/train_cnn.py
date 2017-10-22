@@ -306,7 +306,8 @@ with tf.Graph().as_default():
                 precision_at_3, precision_at_4, precision_at_5, \
                 recall_at_1, recall_at_2,\
                 recall_at_3, recall_at_4, recall_at_5,\
-                prediction_top_k_indice = \
+                prediction_top_k_indices,\
+                prediction_top_k_values = \
                 sess.run([test_summary_op,
                           cnn.loss,
                           cnn.correct_at_1,
@@ -325,7 +326,8 @@ with tf.Graph().as_default():
                           cnn.recall_op_at_3,
                           cnn.recall_op_at_4,
                           cnn.recall_op_at_5,
-                          cnn.prediction_top_k_indice],
+                          cnn.prediction_top_k_indices,
+                          cnn.prediction_top_k_values],
                          feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, streaming_accuracy {:g},\
@@ -347,7 +349,9 @@ with tf.Graph().as_default():
 
             if writer:
                 writer.add_summary(summaries, step_test)
-            return prediction_top_k_indice,(np.sum(correct_at_1), np.sum(correct_at_2), np.sum(correct_at_3), np.sum(correct_at_4), np.sum(correct_at_5))
+            return prediction_top_k_values,\
+                prediction_top_k_indices,\
+                (np.sum(correct_at_1), np.sum(correct_at_2), np.sum(correct_at_3), np.sum(correct_at_4), np.sum(correct_at_5))
 
         # Generate batches
         batches = data_helpers.batch_generator(
@@ -390,15 +394,17 @@ with tf.Graph().as_default():
         dev_batches = data_helpers.batch_generator(
             list(zip(x_dev, y_dev)), FLAGS.batch_size)
         step = 0
-        prediction_top_k_indice = []
+        prediction_top_k_values = []
+        prediction_top_k_indices = []
         real_labels_indice = []
         true_correct = np.zeros(5)
         for dev_batch in dev_batches:
             x_dev_batch, y_dev_batch = zip(*dev_batch)
-            prediction, correct = test_step(x_dev_batch, y_dev_batch,
-                                            step, writer=test_summary_writer)
+            values, indices, correct = test_step(
+                x_dev_batch, y_dev_batch, step, writer=test_summary_writer)
             true_correct += correct
-            prediction_top_k_indice.extend(prediction)
+            prediction_top_k_values.extend(values)
+            prediction_top_k_indices.extend(indices)
             real_labels_indice.extend(np.argmax(y_dev_batch, 1))
             step += 1
 
@@ -410,7 +416,11 @@ with tf.Graph().as_default():
                    k,
                    (true_correct[k] / total_nums)))
         fixer_file = data_results + "fixer_" + str(train_index) + ".csv"
-        prediction_file = data_results + "prediction_" +\
+        indices_file = data_results + "prediction_" +\
             str(train_index) + ".csv"
+        values_file = data_results + "probability_" + str(train_index) + ".csv"
         np.savetxt(fixer_file, real_labels_indice, fmt="%s", delimiter=',')
-        np.savetxt(prediction_file, prediction_top_k_indice, fmt="%s", delimiter=',')
+        np.savetxt(
+            indices_file, prediction_top_k_indices, fmt="%s", delimiter=',')
+        np.savetxt(
+            values_file, prediction_top_k_values, fmt="%s", delimiter=',')
