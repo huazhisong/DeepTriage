@@ -106,7 +106,7 @@ with tf.Graph().as_default():
 
     sess = tf.Session(config=session_conf)
     with sess.as_default():
-        cnn = text_cnn.TextMLCNN(
+        cnn = text_cnn.TextCNNLSTM(
             sequence_length=x_train.shape[1],
             num_classes=y_train.shape[1],
             vocab_size=len(vocabulary_processor.vocabulary_),

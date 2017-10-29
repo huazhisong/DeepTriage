@@ -1,5 +1,6 @@
 # -*- coding:utf-8 -*-
 import tensorflow as tf
+from functools import reduce
 import pdb
 
 
@@ -217,7 +218,7 @@ class TextCNN(object):
                     name="recall_at1")
 
 
-class TextMLCNN(object):
+class TextCNNLSTM(object):
     """
     A CNN for text classification.
     Uses an embedding layer, followed
@@ -299,54 +300,43 @@ class TextMLCNN(object):
                     strides=[1, 1, 1, 1],
                     padding="VALID",
                     name="conv")
-                # Apply nonlinearity
-                h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
-                # Maxpooling over the outputs
-                pooled = tf.nn.max_pool(
-                    h,
-                    ksize=[1, sequence_length - filter_size + 1, 1, 1],
-                    strides=[1, 1, 1, 1],
-                    padding='VALID',
-                    name="pool")
-                pooled_outputs.append(pooled)
+                # # Apply nonlinearity
+                # h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+                # # Maxpooling over the outputs
+                # pooled = tf.nn.max_pool(
+                #     h,
+                #     ksize=[1, sequence_length - filter_size + 1, 1, 1],
+                #     strides=[1, 1, 1, 1],
+                #     padding='VALID',
+                #     name="pool")
+                pooled_outputs.append(conv)
         # Combine all the pooled features
-        self.h_pool = tf.concat(pooled_outputs, 3)
-        num_filters_total = num_filters * len(filter_sizes)
-        self.h_pool_flat = tf.reshape(
-            self.h_pool, [-1, num_filters_total, 1, 1])
-        with tf.name_scope("conv-maxpool-L2"):
-            # Convolution Layer
-            filter_shape = [filter_sizes[0], 1, 1, num_filters]
-            W = tf.Variable(tf.truncated_normal(
-                filter_shape, stddev=0.1), name="W")
-            b = tf.Variable(tf.constant(
-                0.1, shape=[num_filters]), name="b")
-            conv = tf.nn.conv2d(
-                self.h_pool_flat,
-                W,
-                strides=[1, 1, 1, 1],
-                padding="VALID",
-                name="conv")
-            # Apply nonlinearity
-            h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
-            # Maxpooling over the outputs
-            self.h_pool2 = tf.nn.max_pool(
-                h,
-                ksize=[1, num_filters_total - filter_sizes[0] + 1, 1, 1],
-                strides=[1, 1, 1, 1],
-                padding='VALID',
-                name="pool")
-        self.h_pool_flat = tf.reshape(self.h_pool2, [-1, num_filters])
+        # self.h_pool = tf.concat(pooled_outputs, 3)
+        # num_filters_total = num_filters * len(filter_sizes)
+        # self.h_pool_flat = tf.reshape(
+        #     self.h_pool, [-1, num_filters_total, 1, 1])
+        num_features = pooled_outputs[-1].get_shape().as_list()[1]
+        num_channels = len(pooled_outputs)
+        with tf.name_scope("LSTM"):
+            input_x = [tf.squeeze(x, 2) for x in pooled_outputs]
+            input_x = reduce(lambda x, y: tf.concat(
+                [x[:, :num_features, :],
+                 y[:, :num_features, :]], axis=-1), input_x)
+            input_x = tf.unstack(input_x, axis=2)
+            lstm = tf.contrib.rnn.BasicLSTMCell(num_filters * num_channels)
+            outputs, states = tf.contrib.rnn.static_rnn(
+                lstm, input_x, dtype=tf.float32)
+            self.lstm_out = outputs[-1]
         # Add dropout
         with tf.name_scope("dropout"):
             self.h_drop = tf.nn.dropout(
-                self.h_pool_flat, self.dropout_keep_prob)
+                self.lstm_out, self.dropout_keep_prob)
 
         # Final (unnormalized) scores and predictions
         with tf.name_scope("output"):
             W = tf.get_variable(
                 "W",
-                shape=[num_filters, num_classes],
+                shape=[num_filters * num_channels, num_classes],
                 initializer=tf.contrib.layers.xavier_initializer())
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
             l2_loss += tf.nn.l2_loss(W)
