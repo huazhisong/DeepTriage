@@ -47,7 +47,7 @@ tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer(
     "num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer(
-    "require_improvement", 10000,
+    "require_improvement", 5,
     "Require improvement steps for training data (default: 1000)")
 tf.flags.DEFINE_integer(
     "evaluate_every", 500,
@@ -63,7 +63,7 @@ tf.flags.DEFINE_boolean("allow_soft_placement", True,
 tf.flags.DEFINE_boolean("log_device_placement", False,
                         "Log placement of ops on devices")
 tf.flags.DEFINE_string(
-    "embedding_type", "rand",
+    "embedding_type", "none_static",
     "rand, static,none_static, multiple_channels (default: 'rand')")
 
 FLAGS = tf.flags.FLAGS
@@ -360,6 +360,7 @@ with tf.Graph().as_default():
         # Training loop. For each batch...
         best_accuracy = 0.0
         last_improvement_step = 0
+        numer_iter = int((len(y_dev) - 1) / FLAGS.batch_size) + 1
         for batch in batches:
             x_batch, y_batch = zip(*batch)
             accuracy = train_step(x_batch, y_batch)
@@ -371,8 +372,7 @@ with tf.Graph().as_default():
             if accuracy > best_accuracy:
                 best_accuracy = accuracy
                 last_improvement_step = current_step
-            if current_step - last_improvement_step >\
-                    FLAGS.require_improvement and best_accuracy == 1.0:
+            if (current_step - last_improvement_step > (FLAGS.require_improvement * numer_iter)) or  best_accuracy == 1.0:
                 print('no more improving!')
                 break
         current_step = tf.train.global_step(sess, global_step)
@@ -408,7 +408,6 @@ with tf.Graph().as_default():
             real_labels_indice.extend(np.argmax(y_dev_batch, 1))
             step += 1
 
-        numer_iter = int((len(y_dev) - 1) / FLAGS.batch_size) + 1
         total_nums = numer_iter * FLAGS.batch_size
         for k in range(5):
             print('%s: total accuracy @ %d = %.8f' %
