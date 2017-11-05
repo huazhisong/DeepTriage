@@ -283,11 +283,11 @@ class TextLSTM(object):
                     [train_embedded_chars, static_embedded_chars], 3)
             else:
                 print("\n**\nWrong embedding type!\n**\n")
-
+        num_filters = 300
         with tf.name_scope("LSTM"):
             input_x = tf.squeeze(self.embedded_chars_expanded, -1)
             input_x = tf.unstack(input_x, axis=2)
-            lstm = tf.contrib.rnn.BasicLSTMCell(num_filters)
+            lstm = tf.contrib.rnn.LSTMCell(num_filters, use_peepholes=True)
             outputs, _ = tf.contrib.rnn.static_rnn(
                 lstm, input_x, dtype=tf.float32)
             self.lstm_out = outputs[-1]
@@ -295,7 +295,7 @@ class TextLSTM(object):
         # Add dropout
         with tf.name_scope("dropout"):
             self.h_drop = tf.nn.dropout(
-                self.lstm_out, self.dropout_keep_prob)
+                 self.lstm_out, self.dropout_keep_prob)
 
         # Final (unnormalized) scores and predictions
         with tf.name_scope("output"):
