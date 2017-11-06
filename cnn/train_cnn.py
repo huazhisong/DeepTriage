@@ -63,7 +63,7 @@ tf.flags.DEFINE_boolean("allow_soft_placement", True,
 tf.flags.DEFINE_boolean("log_device_placement", False,
                         "Log placement of ops on devices")
 tf.flags.DEFINE_string(
-    "embedding_type", "none_static",
+    "embedding_type", "rand",
     "rand, static,none_static, multiple_channels (default: 'rand')")
 
 FLAGS = tf.flags.FLAGS
@@ -106,7 +106,7 @@ with tf.Graph().as_default():
 
     sess = tf.Session(config=session_conf)
     with sess.as_default():
-        cnn = text_cnn.TextCNN(
+        cnn = text_cnn.TextLSTM(
             sequence_length=x_train.shape[1],
             num_classes=y_train.shape[1],
             vocab_size=len(vocabulary_processor.vocabulary_),

@@ -286,11 +286,13 @@ class TextLSTM(object):
         num_filters = 300
         with tf.name_scope("LSTM"):
             input_x = tf.squeeze(self.embedded_chars_expanded, -1)
-            input_x = tf.unstack(input_x, axis=2)
+            input_x = tf.unstack(input_x, axis=1)
             lstm = tf.contrib.rnn.LSTMCell(num_filters, use_peepholes=True)
             outputs, _ = tf.contrib.rnn.static_rnn(
                 lstm, input_x, dtype=tf.float32)
-            self.lstm_out = outputs[-1]
+            # pdb.set_trace()
+            # self.lstm_out = outputs[-1]
+            self.lstm_out = tf.concat(outputs, axis=1)
 
         # Add dropout
         with tf.name_scope("dropout"):
@@ -300,7 +302,7 @@ class TextLSTM(object):
         with tf.name_scope("output"):
             W = tf.get_variable(
                 "W",
-                shape=[num_filters, num_classes],
+                shape=[num_filters * sequence_length, num_classes],
                 initializer=tf.contrib.layers.xavier_initializer())
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
             l2_loss += tf.nn.l2_loss(W)
@@ -475,7 +477,7 @@ class TextBiLSTM(object):
 
         with tf.name_scope("BiLSTM"):
             input_x = tf.squeeze(self.embedded_chars_expanded, -1)
-            input_x = tf.unstack(input_x, axis=2)
+            input_x = tf.unstack(input_x, axis=1)
             lstm_forward = tf.contrib.rnn.BasicLSTMCell(num_filters)
             lstm_backward = tf.contrib.rnn.BasicLSTMCell(num_filters)
             outputs, _, _ = tf.contrib.rnn.static_bidirectional_rnn(
