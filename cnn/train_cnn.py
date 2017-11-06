@@ -106,7 +106,7 @@ with tf.Graph().as_default():
 
     sess = tf.Session(config=session_conf)
     with sess.as_default():
-        cnn = text_cnn.TextBiLSTM(
+        cnn = text_cnn.TextCNN(
             sequence_length=x_train.shape[1],
             num_classes=y_train.shape[1],
             vocab_size=len(vocabulary_processor.vocabulary_),
@@ -360,7 +360,7 @@ with tf.Graph().as_default():
         # Training loop. For each batch...
         best_accuracy = 0.0
         last_improvement_step = 0
-        numer_iter = int((len(y_dev) - 1) / FLAGS.batch_size) + 1
+        numer_iter = int((len(y_train) - 1) / FLAGS.batch_size) + 1
         for batch in batches:
             x_batch, y_batch = zip(*batch)
             accuracy = train_step(x_batch, y_batch)
@@ -408,6 +408,7 @@ with tf.Graph().as_default():
             real_labels_indice.extend(np.argmax(y_dev_batch, 1))
             step += 1
 
+        numer_iter = int((len(y_dev) - 1) / FLAGS.batch_size) + 1
         total_nums = numer_iter * FLAGS.batch_size
         for k in range(5):
             print('%s: total accuracy @ %d = %.8f' %
