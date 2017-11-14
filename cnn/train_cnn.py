@@ -83,9 +83,10 @@ tf.gfile.MakeDirs(FLAGS.checkpointDir)
 # Load data
 print("Loading data...")
 train_data = "eclipse/"
-train_index = 10
+train_index = 1
 data_dir = "../../data/data_by_ocean/" + train_data
-data_results = data_dir + "results/"
+models = "TextMCNN"
+data_results = data_dir + "results/" + models + '/'
 if not tf.gfile.Exists(data_results):
     tf.gfile.MakeDirs(data_results)
 class_file = data_results + "class_" + str(train_index) + ".csv"
@@ -106,7 +107,7 @@ with tf.Graph().as_default():
 
     sess = tf.Session(config=session_conf)
     with sess.as_default():
-        cnn = text_cnn.TextCNN(
+        cnn = text_cnn.TextMCNN(
             sequence_length=x_train.shape[1],
             num_classes=y_train.shape[1],
             vocab_size=len(vocabulary_processor.vocabulary_),
