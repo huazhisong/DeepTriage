@@ -85,7 +85,7 @@ print("Loading data...")
 train_data = "eclipse/"
 train_index = 1
 data_dir = "../../data/data_by_ocean/" + train_data
-models = "TextMCNN"
+models = "TextHMCNN"
 data_results = data_dir + "results/" + models + '/'
 if not tf.gfile.Exists(data_results):
     tf.gfile.MakeDirs(data_results)
@@ -107,7 +107,7 @@ with tf.Graph().as_default():
 
     sess = tf.Session(config=session_conf)
     with sess.as_default():
-        cnn = text_cnn.TextMCNN(
+        cnn = text_cnn.TextHMCNN(
             sequence_length=x_train.shape[1],
             num_classes=y_train.shape[1],
             vocab_size=len(vocabulary_processor.vocabulary_),
