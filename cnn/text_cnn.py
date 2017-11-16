@@ -217,6 +217,201 @@ class TextCNN(object):
                     k=5,
                     name="recall_at1")
 
+class TextML(object):
+    """
+    A CNN for text classification.
+    Uses an embedding layer, followed
+    by a convolutional, max-pooling and softmax layer.
+    """
+
+    def __init__(
+            self, sequence_length, num_classes, vocab_size,
+            embedding_size, num_filters, batch_size,
+            filter_sizes=list(), top_k=3,
+            embedding_type=None, l2_reg_lambda=0.0):
+        # Placeholders for input, output and dropout
+        self.input_x = tf.placeholder(
+            tf.int32, [None, sequence_length], name="input_x")
+        self.input_y = tf.placeholder(
+            tf.int64, [None, num_classes], name="input_y")
+        self.dropout_keep_prob = tf.placeholder(
+            tf.float32, name="dropout_keep_prob")
+
+        # Keeping track of l2 regularization loss (optional)
+        l2_loss = tf.constant(0.0)
+
+        # Embedding layer
+        with tf.device('/cpu:0'), tf.name_scope("embedding"):
+            if embedding_type == 'static':
+                self.W = tf.Variable(
+                    tf.random_uniform(
+                        [vocab_size, embedding_size],
+                        -1.0, 1.0),
+                    trainable=False,
+                    name="W")
+                self.embedded_chars = tf.nn.embedding_lookup(
+                    self.W, self.input_x)
+                self.embedded_chars_expanded = tf.expand_dims(
+                    self.embedded_chars, -1)
+            elif embedding_type == 'rand' or embedding_type == 'none_static':
+                self.W = tf.Variable(
+                    tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
+                    name="W")
+                self.embedded_chars = tf.nn.embedding_lookup(
+                    self.W, self.input_x)
+                self.embedded_chars_expanded = tf.expand_dims(
+                    self.embedded_chars, -1)
+            elif embedding_type == 'multiple_channels':
+                self.W = tf.Variable(
+                    tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
+                    name="W")
+                train_embedded_chars = tf.nn.embedding_lookup(
+                    self.W, self.input_x)
+                train_embedded_chars = tf.expand_dims(train_embedded_chars, -1)
+                self.W_static = tf.Variable(
+                    tf.random_uniform(
+                        [vocab_size, embedding_size],
+                        -1.0, 1.0),
+                    trainable=False,
+                    name="W_static")
+                static_embedded_chars = tf.nn.embedding_lookup(
+                    self.W_static, self.input_x)
+                static_embedded_chars = tf.expand_dims(
+                    static_embedded_chars, -1)
+                self.embedded_chars_expanded = tf.concat(
+                    [train_embedded_chars, static_embedded_chars], 3)
+            else:
+                print("\n**\nWrong embedding type!\n**\n")
+
+        with tf.name_scope('flat'):
+            embedding_chars = tf.squeeze(self.embedded_chars_expanded)
+            self.h_flat = tf.reshape(embedding_chars, [-1, sequence_length * embedding_size ])
+
+        with tf.name_scope("fc1"):
+            W = tf.get_variable(
+                "W1",
+                shape=[sequence_length * embedding_size, num_filters * 3],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(0.1, shape=[num_filters * 3]), name="b")
+            l2_loss += tf.nn.l2_loss(W)
+            l2_loss += tf.nn.l2_loss(b)
+            self.fc1_out = tf.nn.xw_plus_b(self.h_flat, W, b, name="scores")
+
+        # Add dropout
+        with tf.name_scope("dropout"):
+            self.h_drop = tf.nn.dropout(
+                self.fc1_out, self.dropout_keep_prob)
+
+        # Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                "W",
+                shape=[num_filters * 3, num_classes],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
+            l2_loss += tf.nn.l2_loss(W)
+            l2_loss += tf.nn.l2_loss(b)
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+
+        # CalculateMean cross-entropy loss
+        with tf.name_scope("loss"):
+            losses = tf.nn.softmax_cross_entropy_with_logits(
+                logits=self.logits, labels=self.input_y)
+            self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
+
+        label = tf.arg_max(self.input_y, 1)
+        prediction = tf.arg_max(self.logits, 1)
+
+        with tf.name_scope("prdiction_top_k"):
+            lg = tf.nn.softmax(self.logits)
+            self.prediction_top_k_values, self.prediction_top_k_indices = \
+                tf.nn.top_k(lg, 15)
+
+        # Accuracy
+        with tf.name_scope("accuracy"):
+            self.correct_at_1 = tf.nn.in_top_k(self.logits, label, 1)
+            self.accuracy_at_1 =\
+                tf.reduce_mean(tf.cast(self.correct_at_1, tf.float32))
+            self.correct_at_2 = tf.nn.in_top_k(self.logits, label, 2)
+            self.accuracy_at_2 = \
+                tf.reduce_mean(tf.cast(self.correct_at_2, tf.float32))
+            self.correct_at_3 = tf.nn.in_top_k(self.logits, label, 3)
+            self.accuracy_at_3 = \
+                tf.reduce_mean(tf.cast(self.correct_at_3, tf.float32))
+            self.correct_at_4 = tf.nn.in_top_k(self.logits, label, 4)
+            self.accuracy_at_4 = \
+                tf.reduce_mean(tf.cast(self.correct_at_4, tf.float32))
+            self.correct_at_5 = tf.nn.in_top_k(self.logits, label, 5)
+            self.accuracy_at_5 = \
+                tf.reduce_mean(tf.cast(self.correct_at_5, tf.float32))
+        # Evaluation
+        with tf.name_scope("evaluation"):
+            self.streaming_accuracy, self.streaming_accuray_op = \
+                tf.contrib.metrics.streaming_accuracy(
+                    predictions=prediction,
+                    labels=label,
+                    name='streaming_accuracy')
+            self.precision_at_1, self.precision_op_at_1 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=1,
+                    name="precision_at_1")
+            self.recall_at_1, self.recall_op_at_1 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=1,
+                    name="recall_at1")
+            self.precision_at_2, self.precision_op_at_2 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=2,
+                    name="precision_at_1")
+            self.recall_at_2, self.recall_op_at_2 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=2,
+                    name="recall_at1")
+            self.precision_at_3, self.precision_op_at_3 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=3,
+                    name="precision_at_1")
+            self.recall_at_3, self.recall_op_at_3 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=3,
+                    name="recall_at1")
+            self.precision_at_4, self.precision_op_at_4 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=4,
+                    name="precision_at_1")
+            self.recall_at_4, self.recall_op_at_4 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=4,
+                    name="recall_at1")
+            self.precision_at_5, self.precision_op_at_5 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=5,
+                    name="precision_at_1")
+            self.recall_at_5, self.recall_op_at_5 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=label,
+                    k=5,
+                    name="recall_at1")
+
 
 class TextLSTM(object):
     """
@@ -287,7 +482,8 @@ class TextLSTM(object):
         with tf.name_scope("LSTM"):
             input_x = tf.squeeze(self.embedded_chars_expanded, -1)
             input_x = tf.unstack(input_x, axis=1)
-            lstm = tf.contrib.rnn.LSTMCell(num_filters, use_peepholes=True)
+            # lstm = tf.contrib.rnn.LSTMCell(num_filters, use_peepholes=True)
+            lstm = tf.contrib.rnn.GRUCell(num_filters)
             outputs, _ = tf.contrib.rnn.static_rnn(
                 lstm, input_x, dtype=tf.float32)
             # pdb.set_trace()

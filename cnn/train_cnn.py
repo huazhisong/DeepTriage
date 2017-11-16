@@ -83,7 +83,7 @@ tf.gfile.MakeDirs(FLAGS.checkpointDir)
 # Load data
 print("Loading data...")
 train_data = "eclipse/"
-train_index = 1
+train_index = 2
 data_dir = "../../data/data_by_ocean/" + train_data
 data_results = data_dir + "results/"
 if not tf.gfile.Exists(data_results):
