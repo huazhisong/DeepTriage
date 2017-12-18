@@ -22,9 +22,10 @@ tf.flags.DEFINE_string(
 # tf.flags.DEFINE_string("embedding_file",
 # "../../data/data_by_ocean/GoogleNews-vectors-negative300.bin",
 #                        "embedding file")
+# GoogleNews-vectors-negative300.bin",
 tf.flags.DEFINE_string(
     "embedding_file",
-    "../../data/data_by_ocean/GoogleNews-vectors-negative300.bin",
+    "../../data/data_by_ocean/eclipse.bin",
     "embedding file")
 tf.flags.DEFINE_string("checkpointDir", "./runs/cnn_model", "log dir")
 
@@ -85,7 +86,7 @@ print("Loading data...")
 train_data = "eclipse/"
 train_index = 1
 data_dir = "../../data/data_by_ocean/" + train_data
-models = "TextHMCNN"
+models = "TextCNN"
 data_results = data_dir + "results/" + models + '/'
 if not tf.gfile.Exists(data_results):
     tf.gfile.MakeDirs(data_results)
@@ -107,7 +108,7 @@ with tf.Graph().as_default():
 
     sess = tf.Session(config=session_conf)
     with sess.as_default():
-        cnn = text_cnn.TextHMCNN(
+        cnn = text_cnn.TextCNN(
             sequence_length=x_train.shape[1],
             num_classes=y_train.shape[1],
             vocab_size=len(vocabulary_processor.vocabulary_),
@@ -414,7 +415,7 @@ with tf.Graph().as_default():
         for k in range(5):
             print('%s: total accuracy @ %d = %.8f' %
                   (datetime.datetime.now().isoformat(),
-                   k,
+                   k + 1,
                    (true_correct[k] / total_nums)))
         fixer_file = data_results + "fixer_" + str(train_index) + ".csv"
         indices_file = data_results + "prediction_" +\
