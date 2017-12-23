@@ -1,7 +1,6 @@
 # -*- coding:utf-8 -*-
 import tensorflow as tf
 from functools import reduce
-import pdb
 
 
 class TextCNN(object):
