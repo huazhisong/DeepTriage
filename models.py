@@ -1,36 +1,22 @@
 # -*- code:utf-8 -*-
 import tensorflow as tf
+from functools import reduce
 
 
 class Model(object):
     """
-    A self for text classification.
-    Uses an embedding layer, followed
-    by a convolutional, max-pooling and softmax layer.
+    Bug triage Models
     """
 
     def __init__(
-            self, model_type,
-            max_sent_length, num_classes,
-            num_filters, filter_sizes,
-            embedding_type, embedding_size,
-            embedding, l2_reg_lambda,
-            learning_rate):
+            self, model_type, config_model):
         """
 
 
         intit
         """
         self.model_type = 'self._' + model_type + '()'
-        self.num_classes = num_classes
-        self.max_sent_length = max_sent_length
-        self.num_filters = num_filters
-        self.filter_sizes = filter_sizes
-        self.embedding_type = embedding_type
-        self.embedding_size = embedding_size
-        self.l2_reg_lambda = l2_reg_lambda
-        self.learning_rate = learning_rate
-        self.embedding = embedding
+        self.config = config_model
 
         self.l2_loss = tf.constant(0.0)
         with tf.name_scope('Embedding'):
@@ -53,28 +39,30 @@ class Model(object):
 
     def _embedding(self):
         self.input_x = tf.placeholder(
-            dtype=tf.int32, shape=[None, self.max_sent_length], name='input_x')
+            dtype=tf.int32,
+            shape=[None, self.config['max_sent_length']],
+            name='input_x')
         with tf.device('/cpu:0'):
-            if not self.embedding_type == 'multiple_channels':
-                if self.embedding_type == 'static':
+            if not self.config['embedding_type'] == 'multiple_channels':
+                if self.config['embedding_type'] == 'static':
                     self.embedding = tf.get_variable(
                         "embedding",
-                        shape=self.embedding.shape,
-                        initializer=tf.constant_initializer(self.embedding),
+                        shape=self.config['embedding_shape'],
+                        initializer=tf.contrib.layers.xavier_initializer(),
                         dtype=tf.float32,
                         trainable=False)
-                elif self.embedding_type == 'rand':
+                elif self.config['embedding_type'] == 'rand':
                     self.embedding = tf.get_variable(
                         "embedding",
-                        shape=self.embedding.shape,
+                        shape=self.config['embedding_shape'],
                         initializer=tf.contrib.layers.xavier_initializer(),
                         dtype=tf.float32,
                         trainable=True)
-                elif self.embedding_type == 'non_static':
+                elif self.config['embedding_type'] == 'non_static':
                     self.embedding = tf.get_variable(
                         "embedding",
-                        shape=self.embedding.shape,
-                        initializer=tf.constant_initializer(self.embedding),
+                        shape=self.config['embedding_shape'],
+                        initializer=tf.contrib.layers.xavier_initializer(),
                         dtype=tf.float32,
                         trainable=True)
                 embedded = tf.nn.embedding_lookup(self.embedding, self.input_x)
@@ -82,14 +70,14 @@ class Model(object):
             else:
                 self.embedding = tf.get_variable(
                     "embedding",
-                    shape=self.embedding.shape,
-                    initializer=tf.constant_initializer(self.embedding),
+                    shape=self.config['embedding_shape'],
+                    initializer=tf.contrib.layers.xavier_initializer(),
                     dtype=tf.float32,
                     trainable=False)
                 self.another_embedding = tf.get_variable(
                     "another_embedding",
-                    shape=self.embedding.shape,
-                    initializer=tf.constant_initializer(self.embedding),
+                    shape=self.config['embedding_shape'],
+                    initializer=tf.contrib.layers.xavier_initializer(),
                     dtype=tf.float32,
                     trainable=True)
                 embedded = tf.nn.embedding_lookup(self.embedding, self.input_x)
@@ -100,20 +88,21 @@ class Model(object):
                 self.input_embedded = tf.concat(
                     [expaned_embedded, another_expaned_embedded], 3)
 
-    def _classical_model(self):
+    def _textcnn(self):
         # Create a convolution + maxpool layer for each filter size
         pooled_outputs = []
-        num_in = 1 if not self.embedding_type == 'multiple_channels' else 2
-        for i, filter_size in enumerate(self.filter_sizes):
+        num_in = 1 if not self.config['embedding_type'] ==\
+            'multiple_channels' else 2
+        for i, filter_size in enumerate(self.config['filter_sizes']):
             with tf.name_scope("conv-maxpool-%s" % filter_size):
                 # Convolution Layer
                 filter_shape = [filter_size,
-                                self.embedding_size,
-                                num_in, self.num_filters]
+                                self.config['embedding_shape'][1],
+                                num_in, self.config['num_filters']]
                 W = tf.Variable(tf.truncated_normal(
                     filter_shape, stddev=0.1), name="W")
                 b = tf.Variable(tf.constant(
-                    0.1, shape=[self.num_filters]), name="b")
+                    0.1, shape=[self.config['num_filters']]), name="b")
                 conv = tf.nn.conv2d(
                     self.input_embedded,
                     W,
@@ -125,7 +114,7 @@ class Model(object):
                 # Maxpooling over the outputs
                 pooled = tf.nn.max_pool(
                     h,
-                    ksize=[1, self.max_sent_length -
+                    ksize=[1, self.config['max_sent_length'] -
                            filter_size + 1, 1, 1],
                     strides=[1, 1, 1, 1],
                     padding='VALID',
@@ -133,7 +122,8 @@ class Model(object):
                 pooled_outputs.append(pooled)
 
         # Combine all the pooled features
-        num_filters_total = self.num_filters * len(self.filter_sizes)
+        num_filters_total = self.config['num_filters'] *\
+            len(self.config['filter_sizes'])
         self.h_pool = tf.concat(pooled_outputs, 3)
         self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
 
@@ -148,25 +138,324 @@ class Model(object):
         with tf.name_scope("output"):
             W = tf.get_variable(
                 "W",
-                shape=[num_filters_total, self.num_classes],
+                shape=[num_filters_total, self.config['num_classes']],
                 initializer=tf.contrib.layers.xavier_initializer())
             b = tf.Variable(tf.constant(
-                0.1, shape=[self.num_classes]), name="b")
+                0.1, shape=[self.config['num_classes']]), name="b")
+            self.l2_loss += tf.nn.l2_loss(W)
+            self.l2_loss += tf.nn.l2_loss(b)
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+
+    def _multi_layers_cnn(self):
+        """
+
+        三层CNN叠加
+        """
+        filter_size = self.config['filter_sizes'][0]
+        filter_shape = [filter_size, self.config['embedding_shape']
+                        [1], 1, self.config['num_filters']]
+        W = tf.Variable(tf.truncated_normal(
+            filter_shape, stddev=0.1), name="W")
+        b = tf.Variable(tf.constant(
+            0.1, shape=[self.config['num_filters']]), name="b")
+        conv = tf.nn.conv2d(
+            self.input_embedded,
+            W,
+            strides=[1, 1, 1, 1],
+            padding="VALID",
+            name="conv")
+        # Apply nonlinearity
+        h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+        filter_shape = [filter_size, 1,
+                        self.config['num_filters'], self.config['num_filters']]
+        W = tf.Variable(tf.truncated_normal(
+            filter_shape, stddev=0.1), name="W")
+        b = tf.Variable(tf.constant(
+            0.1, shape=[self.config['num_filters']]), name="b")
+        conv = tf.nn.conv2d(
+            conv,
+            W,
+            strides=[1, 1, 1, 1],
+            padding="VALID",
+            name="conv")
+        # Apply nonlinearity
+        h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+        filter_shape = [filter_size, 1,
+                        self.config['num_filters'], self.config['num_filters']]
+        W = tf.Variable(tf.truncated_normal(
+            filter_shape, stddev=0.1), name="W")
+        b = tf.Variable(tf.constant(
+            0.1, shape=[self.config['num_filters']]), name="b")
+        conv = tf.nn.conv2d(
+            conv,
+            W,
+            strides=[1, 1, 1, 1],
+            padding="VALID",
+            name="conv")
+        # Apply nonlinearity
+        h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+        # Maxpooling over the outputs
+        pooled = tf.nn.max_pool(
+            h,
+            ksize=[1, h.get_shape().as_list()[1], 1, 1],
+            strides=[1, 1, 1, 1],
+            padding='VALID',
+            name="pool")
+        self.h_pool = tf.reshape(pooled, [-1, self.config['num_filters']])
+
+        # Add dropout
+        with tf.name_scope("dropout"):
+            self.dropout_keep_prob = tf.placeholder(
+                tf.float32, name="dropout_keep_prob")
+            self.h_drop = tf.nn.dropout(
+                self.h_pool, self.dropout_keep_prob)
+
+        # Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                "W",
+                shape=[self.config['num_filters'], self.config['num_classes']],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(
+                0.1, shape=[self.config['num_classes']]), name="b")
+            self.l2_loss += tf.nn.l2_loss(W)
+            self.l2_loss += tf.nn.l2_loss(b)
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+
+    def _hierarchical_cnn(self):
+        """
+
+
+        多层cnn结构，每层加pool层进行输出
+        """
+        with tf.name_scope("m-conv"):
+
+            filter_size = self.config['filter_sizes'][0]
+            num_filters = self.config['num_filters']
+            embedding_size = self.config['embedding_shape'][1]
+            num_classes = self.config['num_classes']
+            # Convolution Layer
+            filter_shape = [filter_size, embedding_size, 1, num_filters]
+            W = tf.Variable(tf.truncated_normal(
+                filter_shape, stddev=0.1), name="W")
+            b = tf.Variable(tf.constant(
+                0.1, shape=[num_filters]), name="b")
+            conv = tf.nn.conv2d(
+                self.input_embedded,
+                W,
+                strides=[1, 1, 1, 1],
+                padding="VALID",
+                name="conv")
+            # Apply nonlinearity
+            h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+            pool1 = tf.nn.max_pool(
+                h,
+                ksize=[1, h.get_shape().as_list()[1], 1, 1],
+                strides=[1, 1, 1, 1],
+                padding='VALID',
+                name="pool")
+            filter_shape = [filter_size, 1, num_filters, num_filters]
+            W = tf.Variable(tf.truncated_normal(
+                filter_shape, stddev=0.1), name="W")
+            b = tf.Variable(tf.constant(
+                0.1, shape=[num_filters]), name="b")
+            conv = tf.nn.conv2d(
+                conv,
+                W,
+                strides=[1, 1, 1, 1],
+                padding="VALID",
+                name="conv")
+            # Apply nonlinearity
+            h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+            pool2 = tf.nn.max_pool(
+                h,
+                ksize=[1, h.get_shape().as_list()[1], 1, 1],
+                strides=[1, 1, 1, 1],
+                padding='VALID',
+                name="pool")
+            filter_shape = [filter_size, 1, num_filters, num_filters]
+            W = tf.Variable(tf.truncated_normal(
+                filter_shape, stddev=0.1), name="W")
+            b = tf.Variable(tf.constant(
+                0.1, shape=[num_filters]), name="b")
+            conv = tf.nn.conv2d(
+                conv,
+                W,
+                strides=[1, 1, 1, 1],
+                padding="VALID",
+                name="conv")
+            # Apply nonlinearity
+            h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+            # Maxpooling over the outputs
+            pool3 = tf.nn.max_pool(
+                h,
+                ksize=[1, h.get_shape().as_list()[1], 1, 1],
+                strides=[1, 1, 1, 1],
+                padding='VALID',
+                name="pool")
+            pooled_outputs = [pool1, pool2, pool3]
+            pool = tf.concat(pooled_outputs, 3)
+            self.h_pool = tf.reshape(pool, [-1, num_filters * 3])
+
+        # Add dropout
+        with tf.name_scope("dropout"):
+            self.dropout_keep_prob = tf.placeholder(
+                tf.float32, name="dropout_keep_prob")
+            self.h_drop = tf.nn.dropout(
+                self.h_pool, self.dropout_keep_prob)
+
+        # Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                "W",
+                shape=[num_filters * 3, num_classes],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
+            self.l2_loss += tf.nn.l2_loss(W)
+            self.l2_loss += tf.nn.l2_loss(b)
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+
+    def _textlstm(self):
+        """
+
+
+        经典BasicLSTM
+        """
+        n_hidden = self.config['n_hidden']
+        sequence_length = self.config['max_sent_length']
+        num_classes = self.config['num_classes']
+        with tf.name_scope("LSTM"):
+            input_x = tf.squeeze(self.input_embedded, -1)
+            input_x = tf.unstack(input_x, axis=1)
+            # lstm = tf.contrib.rnn.LSTMCell(num_filters, use_peepholes=True)
+            lstm = tf.contrib.rnn.BasicLSTMCell(n_hidden, forget_bias=1.0)
+            outputs, _ = tf.contrib.rnn.static_rnn(
+                lstm, input_x, dtype=tf.float32)
+            # pdb.set_trace()
+            # self.lstm_out = outputs[-1]
+            self.lstm_out = tf.concat(outputs, axis=1)
+
+        # Add dropout
+        with tf.name_scope("dropout"):
+            self.dropout_keep_prob = tf.placeholder(
+                tf.float32, name="dropout_keep_prob")
+            self.h_drop = tf.nn.dropout(self.lstm_out, self.dropout_keep_prob)
+
+        # Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                "W",
+                shape=[n_hidden * sequence_length, num_classes],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
+            self.l2_loss += tf.nn.l2_loss(W)
+            self.l2_loss += tf.nn.l2_loss(b)
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+
+    def _text_bilstm(self):
+        """
+
+        经典BiLSTM
+        """
+        n_hidden = self.config['n_hidden']
+        sequence_length = self.config['max_sent_length']
+        num_classes = self.config['num_classes']
+        with tf.name_scope("BiLSTM"):
+            input_x = tf.squeeze(self.input_embedded, -1)
+            input_x = tf.unstack(input_x, axis=1)
+            lstm_forward = tf.contrib.rnn.BasicLSTMCell(n_hidden)
+            lstm_backward = tf.contrib.rnn.BasicLSTMCell(n_hidden)
+            outputs, _, _ = tf.contrib.rnn.static_bidirectional_rnn(
+                lstm_forward, lstm_backward, input_x, dtype=tf.float32)
+            self.lstm_out = tf.concat(outputs, axis=1)
+
+        # Add dropout
+        with tf.name_scope("dropout"):
+            self.dropout_keep_prob = tf.placeholder(
+                tf.float32, name="dropout_keep_prob")
+            self.h_drop = tf.nn.dropout(
+                self.lstm_out, self.dropout_keep_prob)
+
+        # Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                "W",
+                shape=[sequence_length * n_hidden * 2, num_classes],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
+            self.l2_loss += tf.nn.l2_loss(W)
+            self.l2_loss += tf.nn.l2_loss(b)
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+
+    def _text_cnn_lstm(self):
+        """
+
+
+        经典CNN+LSTM
+        """
+        filter_sizes = self.config['filter_sizes']
+        embedding_size = self.config['embedding_shape'][1]
+        num_filters = self.config['num_filters']
+        num_classes = self.config['num_classes']
+        # Create a convolution + maxpool layer for each filter size
+        pooled_outputs = []
+        for i, filter_size in enumerate(filter_sizes):
+            with tf.name_scope("conv-maxpool-L%s" % filter_size):
+                # Convolution Layer
+                filter_shape = [filter_size, embedding_size, 1, num_filters]
+                W = tf.Variable(tf.truncated_normal(
+                    filter_shape, stddev=0.1), name="W")
+                b = tf.Variable(tf.constant(
+                    0.1, shape=[num_filters]), name="b")
+                conv = tf.nn.conv2d(
+                    self.input_embedded,
+                    W,
+                    strides=[1, 1, 1, 1],
+                    padding="VALID",
+                    name="conv")
+                pooled_outputs.append(conv)
+        num_features = pooled_outputs[-1].get_shape().as_list()[1]
+        num_channels = len(pooled_outputs)
+        with tf.name_scope("LSTM"):
+            input_x = [tf.squeeze(x, 2) for x in pooled_outputs]
+            input_x = reduce(lambda x, y: tf.concat(
+                [x[:, :num_features, :],
+                 y[:, :num_features, :]], axis=-1), input_x)
+            input_x = tf.unstack(input_x, axis=2)
+            lstm = tf.contrib.rnn.BasicLSTMCell(num_filters * num_channels)
+            outputs, states = tf.contrib.rnn.static_rnn(
+                lstm, input_x, dtype=tf.float32)
+            self.lstm_out = outputs[-1]
+        # Add dropout
+        with tf.name_scope("dropout"):
+            self.dropout_keep_prob = tf.placeholder(
+                tf.float32, name="dropout_keep_prob")
+            self.h_drop = tf.nn.dropout(
+                self.lstm_out, self.dropout_keep_prob)
+
+        # Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                "W",
+                shape=[num_filters * num_channels, num_classes],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
             self.l2_loss += tf.nn.l2_loss(W)
             self.l2_loss += tf.nn.l2_loss(b)
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
 
     def _cost(self):
         self.input_y = tf.placeholder(
-            tf.int64, [None, self.num_classes], name="input_y")
+            tf.int64, [None, self.config['num_classes']], name="input_y")
         losses = tf.nn.softmax_cross_entropy_with_logits(
             logits=self.logits, labels=self.input_y)
-        self.cost = tf.reduce_mean(losses) + self.l2_reg_lambda * self.l2_loss
+        self.cost = tf.reduce_mean(losses) +\
+            self.config['l2_reg_lambda'] * self.l2_loss
 
     def _train(self):
         self.global_step = tf.Variable(
             0, name="global_step", trainable=False)
-        optimizer = tf.train.AdamOptimizer(self.learning_rate)
+        optimizer = tf.train.AdamOptimizer(self.config['learning_rate'])
         self.grads_and_vars = optimizer.compute_gradients(self.cost)
         self.train_op = optimizer.apply_gradients(
             self.grads_and_vars, global_step=self.global_step)

@@ -15,7 +15,7 @@ tf.flags.DEFINE_string(
     "data_dir",
     "../data/data_by_ocean/",
     "direction for data")
-tf.flags.DEFINE_string("checkpointDir", "./logs/cnn_model", "log dir")
+tf.flags.DEFINE_string("checkpointDir", "./logs/", "log dir")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 300,
@@ -23,12 +23,14 @@ tf.flags.DEFINE_integer("embedding_dim", 300,
 tf.flags.DEFINE_string("filter_sizes", "3",
                        "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer(
-    "num_filters", 1, "Number of filters per filter size (default: 128)")
+    "num_filters", 100, "Number of filters per filter size (default: 128)")
+tf.flags.DEFINE_integer(
+    "n_hidden", 300, "Size of hidden cell (default: 300)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5,
                       "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0,
                       "L2 regularization lambda (default: 0.0)")
-tf.flags.DEFINE_float("init_learning_rate", 1e-4, "learning rate")
+tf.flags.DEFINE_float("learning_rate", 1e-4, "learning rate")
 tf.flags.DEFINE_float("decay_rate", 0.96, "decay rate")
 
 # Training parameters
@@ -36,12 +38,15 @@ tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer(
     "num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer(
-    "require_improvement", 1,
-    "Require improvement steps for training data (default: 1000)")
+    "require_improvement", 10,
+    "Require improvement steps for training data (default: 10)")
 tf.flags.DEFINE_integer(
     "evaluate_every", 500,
     "Evaluate model on dev set after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 100,
+tf.flags.DEFINE_integer(
+    "print_loss", 200,
+    "print loss message after this many steps (default: 100)")
+tf.flags.DEFINE_integer("checkpoint_every", 300,
                         "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5,
                         "Number of checkpoints to store (default: 5)")
@@ -50,6 +55,8 @@ tf.flags.DEFINE_boolean("allow_soft_placement", True,
                         "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False,
                         "Log placement of ops on devices")
+tf.flags.DEFINE_boolean("is_restore", False,
+                        "Allow to restore from checkpoits")
 tf.flags.DEFINE_string(
     "embedding_type", "non_static",
     "rand, static,non_static, multiple_channels (default: 'rand')")
@@ -69,7 +76,7 @@ def train_step(cnn, train_summary_writer, sess, x_batch_train, y_batch_train):
         sess.run([cnn.train_op, cnn.global_step,
                   cnn.train_summary_op, cnn.cost, cnn.accuracy_at_1],
                  feed_dict)
-    if step_train % FLAGS.evaluate_every == 0:
+    if step_train % FLAGS.print_loss == 0:
         time_str = datetime.datetime.now().isoformat()
         print(
             "{}: step {}, loss {:g}, acc_1 {:g}".format(time_str,
@@ -102,15 +109,9 @@ def test_step(
                   cnn.streaming_accuray_op,
                   cnn.prediction],
                  feed_dict)
-    time_str = datetime.datetime.now().isoformat()
-    print("{}: step {}, loss {:g},\
-        streaming_accuracy {:g}".format(time_str,
-                                        step_test, loss,
-                                        streaming_accuray))
-
     if writer:
         writer.add_summary(summaries, step_test)
-    return prediction
+    return prediction, loss, streaming_accuray
 
 
 def main(_):
@@ -120,17 +121,32 @@ def main(_):
     train_data = "eclipse/song_no_select/"
     embedding_file = FLAGS.data_dir + 'GoogleNews-vectors-negative300.bin'
 
+    model_types = ["textcnn", "multi_layers_cnn",
+                   "hierarchical_cnn", "textlstm",
+                   "text_bilstm", "text_cnn_lstm"]
+    model_type = "text_bilstm"
+    assert model_type in model_types
+
     data_dir = FLAGS.data_dir + train_data
-    model_type = "classical_model"
     data_results = data_dir + "results/" + model_type + '/'
     if not tf.gfile.Exists(data_results):
         tf.gfile.MakeDirs(data_results)
-
+    FLAGS.checkpointDir = FLAGS.checkpointDir + model_type
     class_file = data_results + "class_" + str(train_index) + ".csv"
     data_files = [data_dir + str(i) + '.csv' for i in range(train_index + 1)]
     x_train, y_train, x_dev, y_dev, embedding, lb =\
         data_utls.load_files(data_files, class_file, embedding_file)
-
+    config_model = {
+        'num_filters': FLAGS.num_filters,
+        'filter_sizes': list(map(int, FLAGS.filter_sizes.split(","))),
+        'n_hidden': FLAGS.n_hidden,
+        'embedding_type': FLAGS.embedding_type,
+        'l2_reg_lambda': FLAGS.l2_reg_lambda,
+        'learning_rate': FLAGS.learning_rate,
+        'max_sent_length': x_train.shape[1],
+        'num_classes': len(lb.classes_),
+        'embedding_shape': embedding.shape
+    }
     with tf.Graph().as_default():
         session_conf = tf.ConfigProto(
             allow_soft_placement=FLAGS.allow_soft_placement,
@@ -138,35 +154,40 @@ def main(_):
 
         sess = tf.Session(config=session_conf)
         with sess.as_default():
-            cnn = Model(
-                model_type=model_type,
-                max_sent_length=x_train.shape[1],
-                num_classes=len(lb.classes_),
-                num_filters=FLAGS.num_filters,
-                filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
-                embedding_type=FLAGS.embedding_type,
-                embedding_size=FLAGS.embedding_dim,
-                embedding=embedding,
-                l2_reg_lambda=FLAGS.l2_reg_lambda,
-                learning_rate=FLAGS.init_learning_rate)
-            # Initialize all variables
-            sess.run(tf.global_variables_initializer())
-            sess.run(tf.local_variables_initializer())
+            cnn = Model(model_type=model_type, config_model=config_model)
+            # Checkpoint directory. TensorFlow assumes this directory
+            # already exists so we need to create it
+            saver = tf.train.Saver(
+                var_list=tf.trainable_variables(),
+                max_to_keep=FLAGS.num_checkpoints)
+            checkpoint_dir = os.path.abspath(
+                os.path.join(FLAGS.checkpointDir, "checkpoints"))
+            checkpoint_prefix = os.path.join(checkpoint_dir, "model")
+            if FLAGS.is_restore and os.path.exists(checkpoint_dir):
+                print("Restoring Variables from Checkpoint")
+                saver.restore(sess,
+                              tf.train.latest_checkpoint(checkpoint_dir))
+                if FLAGS.embedding_type == 'static':
+                    sess.run(tf.assign(cnn.embedding, embedding))
+            else:
+                if tf.gfile.Exists(FLAGS.checkpointDir):
+                    tf.gfile.DeleteRecursively(FLAGS.checkpointDir)
+                    tf.gfile.MakeDirs(FLAGS.checkpointDir)
+                print("Creating Checkpoint file for restoring")
+                os.makedirs(checkpoint_dir)
+                # Initialize all variables
+                sess.run(tf.global_variables_initializer())
+                sess.run(tf.local_variables_initializer())
+                if FLAGS.embedding_type in ['static', 'non_static',
+                                            'multiple_channels']:
+                    sess.run(tf.assign(cnn.embedding, embedding))
+                    if FLAGS.embedding_type == 'multiple_channels':
+                        sess.run(tf.assign(cnn.another_embedding, embedding))
             train_summary_dir = os.path.abspath(
                 os.path.join(FLAGS.checkpointDir, "summaries", "train"))
             train_summary_writer = tf.summary.FileWriter(
                 train_summary_dir, sess.graph)
 
-            # Checkpoint directory. TensorFlow assumes this directory
-            # already exists so we need to create it
-            checkpoint_dir = os.path.abspath(
-                os.path.join(FLAGS.checkpointDir, "checkpoints"))
-            checkpoint_prefix = os.path.join(checkpoint_dir, "model")
-            if not os.path.exists(checkpoint_dir):
-                os.makedirs(checkpoint_dir)
-            saver = tf.train.Saver(
-                var_list=tf.trainable_variables(),
-                max_to_keep=FLAGS.num_checkpoints)
             # Generate batches
             batches = data_utls.batch_generator(
                 x_train, y_train, lb,
@@ -207,15 +228,26 @@ def main(_):
             predictions = []
             labels = []
             for dev_batch, label in dev_batches:
+                step += 1
                 x_dev_batch, y_dev_batch = zip(*dev_batch)
-                prediction = test_step(
+                prediction, loss, streaming_accuray = test_step(
                     cnn, sess, x_dev_batch, y_dev_batch, step,
                     writer=test_summary_writer)
-                step += 1
+                if step % FLAGS.print_loss == 0:
+                    time_str = datetime.datetime.now().isoformat()
+                    print("{}: step {}, loss {:g},\
+                        streaming_accuracy {:g}".format(time_str,
+                                                        step, loss,
+                                                        streaming_accuray))
                 predictions.extend([lb.classes_[index]
                                     for index in prediction])
                 labels.extend(label)
 
+            time_str = datetime.datetime.now().isoformat()
+            print("{}: step {}, loss {:g},\
+                        streaming_accuracy {:g}".format(time_str,
+                                                        step, loss,
+                                                        streaming_accuray))
             prediction_file = data_results + \
                 "prediction_" + str(train_index) + ".csv"
             label_file = data_results + "label_" +\
