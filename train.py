@@ -23,9 +23,9 @@ tf.flags.DEFINE_integer("embedding_dim", 300,
 tf.flags.DEFINE_string("filter_sizes", "3",
                        "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer(
-    "num_filters", 100, "Number of filters per filter size (default: 128)")
+    "num_filters", 400, "Number of filters per filter size (default: 400)")
 tf.flags.DEFINE_integer(
-    "n_hidden", 300, "Size of hidden cell (default: 300)")
+    "n_hidden", 100, "Size of hidden cell (default: 300)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5,
                       "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0,
@@ -34,7 +34,7 @@ tf.flags.DEFINE_float("learning_rate", 1e-4, "learning rate")
 tf.flags.DEFINE_float("decay_rate", 0.96, "decay rate")
 
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 100)")
 tf.flags.DEFINE_integer(
     "num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer(
@@ -46,7 +46,7 @@ tf.flags.DEFINE_integer(
 tf.flags.DEFINE_integer(
     "print_loss", 200,
     "print loss message after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 300,
+tf.flags.DEFINE_integer("checkpoint_every", 1000,
                         "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5,
                         "Number of checkpoints to store (default: 5)")
@@ -70,7 +70,9 @@ def train_step(cnn, train_summary_writer, sess, x_batch_train, y_batch_train):
     feed_dict = {
         cnn.input_x: x_batch_train,
         cnn.input_y: y_batch_train,
-        cnn.dropout_keep_prob: FLAGS.dropout_keep_prob}
+        cnn.dropout_keep_prob: FLAGS.dropout_keep_prob,
+        cnn.is_training: True
+    }
     _, step_train, summaries,\
         loss, acc_at_1 =\
         sess.run([cnn.train_op, cnn.global_step,
@@ -100,18 +102,39 @@ def test_step(
     feed_dict = {
         cnn.input_x: x_batch_test,
         cnn.input_y: y_batch_test,
-        cnn.dropout_keep_prob: 1.0
+        cnn.dropout_keep_prob: 1.0,
+        cnn.is_training: False
     }
     summaries, loss,\
-        streaming_accuray, prediction = \
+        recall_at_1, recall_at_2,\
+        recall_at_3, recall_at_4,\
+        recall_at_5, precision_at_1,\
+        precision_at_2, precision_at_3,\
+        precision_at_4, precision_at_5,\
+        top_k_values, top_k_indices = \
         sess.run([cnn.test_summary_op,
                   cnn.cost,
-                  cnn.streaming_accuray_op,
-                  cnn.prediction],
+                  cnn.recall_op_at_1,
+                  cnn.recall_op_at_2,
+                  cnn.recall_op_at_3,
+                  cnn.recall_op_at_4,
+                  cnn.recall_op_at_5,
+                  cnn.precision_op_at_1,
+                  cnn.precision_op_at_2,
+                  cnn.precision_op_at_3,
+                  cnn.precision_op_at_4,
+                  cnn.precision_op_at_5,
+                  cnn.prediction_top_k_values,
+                  cnn.prediction_top_k_indices],
                  feed_dict)
     if writer:
         writer.add_summary(summaries, step_test)
-    return prediction, loss, streaming_accuray
+    recall = ['recall', recall_at_1, recall_at_2,
+              recall_at_3, recall_at_4, recall_at_5]
+    precision = ['precision', precision_at_1,
+                 precision_at_2, precision_at_3,
+                 precision_at_4, precision_at_5]
+    return top_k_values, top_k_indices, loss, recall, precision
 
 
 def main(_):
@@ -123,8 +146,9 @@ def main(_):
 
     model_types = ["textcnn", "multi_layers_cnn",
                    "hierarchical_cnn", "textlstm",
-                   "text_bilstm", "text_cnn_lstm"]
-    model_type = "text_bilstm"
+                   "text_bilstm", "text_cnn_lstm",
+                   "text_dense"]
+    model_type = "textcnn"
     assert model_type in model_types
 
     data_dir = FLAGS.data_dir + train_data
@@ -145,7 +169,8 @@ def main(_):
         'learning_rate': FLAGS.learning_rate,
         'max_sent_length': x_train.shape[1],
         'num_classes': len(lb.classes_),
-        'embedding_shape': embedding.shape
+        'embedding_shape': embedding.shape,
+        'train_phase': True
     }
     with tf.Graph().as_default():
         session_conf = tf.ConfigProto(
@@ -223,37 +248,54 @@ def main(_):
                 test_summary_dir, sess.graph)
             print("\n Testing:")
             dev_batches = data_utls.batch_generator(
-                x_dev, y_dev, lb, FLAGS.batch_size)
+                x_dev, y_dev, lb, 1)
             step = 0
-            predictions = []
+            top_k_values = []
+            top_k_indices = []
             labels = []
             for dev_batch, label in dev_batches:
                 step += 1
                 x_dev_batch, y_dev_batch = zip(*dev_batch)
-                prediction, loss, streaming_accuray = test_step(
+                top_k_value, top_k_indice, loss, recall, precision = test_step(
                     cnn, sess, x_dev_batch, y_dev_batch, step,
                     writer=test_summary_writer)
                 if step % FLAGS.print_loss == 0:
                     time_str = datetime.datetime.now().isoformat()
                     print("{}: step {}, loss {:g},\
-                        streaming_accuracy {:g}".format(time_str,
-                                                        step, loss,
-                                                        streaming_accuray))
-                predictions.extend([lb.classes_[index]
-                                    for index in prediction])
+                        recall_accuracy {:g}".format(time_str,
+                                                     step, loss,
+                                                     recall[1]))
+                tmp = []
+                for top_k in top_k_indice:
+                    tmp.append([lb.classes_[index] for index in top_k])
+                top_k_indices.extend(tmp)
+                top_k_values.extend(top_k_value)
                 labels.extend(label)
 
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g},\
-                        streaming_accuracy {:g}".format(time_str,
-                                                        step, loss,
-                                                        streaming_accuray))
+                        recall_accuracy {:g},\
+                        recall_accuracy_5 {:g}".format(time_str,
+                                                       step, loss,
+                                                       recall[1], recall[5]))
+            metrics = data_utls.classification_score(labels, top_k_indices)
+            fake_metrics = np.stack([recall, precision])
             prediction_file = data_results + \
                 "prediction_" + str(train_index) + ".csv"
+            probability_file = data_results + \
+                "probability_" + str(train_index) + ".csv"
             label_file = data_results + "label_" +\
                 str(train_index) + ".csv"
-        np.savetxt(prediction_file, predictions, fmt="%s", delimiter=',')
-        np.savetxt(label_file, labels, fmt="%s", delimiter=',')
+            metrics_file = data_results + "score_" +\
+                str(train_index) + ".csv"
+            fake_metrics_file = data_results + "fake_score_" +\
+                str(train_index) + ".csv"
+            np.savetxt(prediction_file, top_k_indices, fmt="%s", delimiter=',')
+            np.savetxt(probability_file, top_k_values, fmt="%s", delimiter=',')
+            np.savetxt(label_file, labels, fmt="%s", delimiter=',')
+            np.savetxt(metrics_file, metrics, fmt="%s", delimiter=',')
+            np.savetxt(fake_metrics_file, fake_metrics,
+                       fmt="%s", delimiter=',')
 
 
 if __name__ == "__main__":

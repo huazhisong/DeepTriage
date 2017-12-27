@@ -1,5 +1,6 @@
 # -*- code:utf-8 -*-
 import tensorflow as tf
+import numpy as np
 from functools import reduce
 
 
@@ -19,6 +20,8 @@ class Model(object):
         self.config = config_model
 
         self.l2_loss = tf.constant(0.0)
+        self.is_training = tf.placeholder(tf.bool, name="is_training")
+
         with tf.name_scope('Embedding'):
             self.embedded_input = self._embedding()
 
@@ -93,6 +96,8 @@ class Model(object):
         pooled_outputs = []
         num_in = 1 if not self.config['embedding_type'] ==\
             'multiple_channels' else 2
+        normed_input = self._batch_norm_layer(
+            self.input_embedded, self.is_training, 'bn_embedding')
         for i, filter_size in enumerate(self.config['filter_sizes']):
             with tf.name_scope("conv-maxpool-%s" % filter_size):
                 # Convolution Layer
@@ -104,7 +109,7 @@ class Model(object):
                 b = tf.Variable(tf.constant(
                     0.1, shape=[self.config['num_filters']]), name="b")
                 conv = tf.nn.conv2d(
-                    self.input_embedded,
+                    normed_input,
                     W,
                     strides=[1, 1, 1, 1],
                     padding="VALID",
@@ -444,6 +449,100 @@ class Model(object):
             self.l2_loss += tf.nn.l2_loss(b)
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
 
+    def _text_dense(self):
+        # Create a convolution + maxpool layer for each filter size
+        pooled_outputs = []
+        num_in = 1 if not self.config['embedding_type'] ==\
+            'multiple_channels' else 2
+        normed_input = self._batch_norm_layer(
+            self.input_embedded, self.is_training, 'embedded_input')
+        for i, filter_size in enumerate(self.config['filter_sizes']):
+            with tf.name_scope("conv-maxpool-%s" % filter_size):
+                # Convolution Layer
+                filter_shape = [filter_size,
+                                self.config['embedding_shape'][1],
+                                num_in, self.config['num_filters']]
+                W = tf.Variable(tf.truncated_normal(
+                    filter_shape, stddev=0.1), name="W")
+                b = tf.Variable(tf.constant(
+                    0.1, shape=[self.config['num_filters']]), name="b")
+                conv = tf.nn.conv2d(
+                    normed_input,
+                    W,
+                    strides=[1, 1, 1, 1],
+                    padding="VALID",
+                    name="conv")
+                # Apply nonlinearity
+                h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+                # Maxpooling over the outputs
+                pooled = tf.nn.max_pool(
+                    h,
+                    ksize=[1, self.config['max_sent_length'] -
+                           filter_size + 1, 1, 1],
+                    strides=[1, 1, 1, 1],
+                    padding='VALID',
+                    name="pool")
+                pooled_outputs.append(pooled)
+
+        # Combine all the pooled features
+        num_filters_total = self.config['num_filters'] *\
+            len(self.config['filter_sizes'])
+        self.h_pool = tf.concat(pooled_outputs, 3)
+        self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
+
+        # batch normalization
+        self.bn_input = self._batch_norm_layer(
+            self.h_pool_flat, self.is_training, 'batch_normalization')
+
+        with tf.name_scope("fc_bn"):
+            W = tf.get_variable(
+                "W_fc",
+                shape=[num_filters_total, num_filters_total],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(
+                0.1, shape=[num_filters_total]), name="b")
+            self.fc_bn = tf.nn.relu(tf.matmul(self.bn_input, W) + b)
+        # Add dropout
+        with tf.name_scope("dropout"):
+            self.dropout_keep_prob = tf.placeholder(
+                tf.float32, name="dropout_keep_prob")
+            # self.h_drop = tf.nn.dropout(
+            #     self.fc_bn, self.dropout_keep_prob)
+
+        # Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                "W",
+                shape=[num_filters_total, self.config['num_classes']],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(
+                0.1, shape=[self.config['num_classes']]), name="b")
+            self.l2_loss += tf.nn.l2_loss(W)
+            self.l2_loss += tf.nn.l2_loss(b)
+            self.logits = tf.nn.xw_plus_b(self.fc_bn, W, b, name="scores")
+
+    def _batch_norm_layer(self, x, train_phase, scope_bn):
+        with tf.variable_scope(scope_bn):
+            beta = tf.Variable(tf.constant(
+                0.0, shape=[x.shape[-1]]), name='beta', trainable=True)
+            gamma = tf.Variable(tf.constant(
+                1.0, shape=[x.shape[-1]]), name='gamma', trainable=True)
+            axises = np.arange(len(x.shape) - 1)
+            batch_mean, batch_var = tf.nn.moments(x, axises, name='moments')
+            ema = tf.train.ExponentialMovingAverage(decay=0.5)
+
+            def mean_var_with_update():
+                ema_apply_op = ema.apply([batch_mean, batch_var])
+                with tf.control_dependencies([ema_apply_op]):
+                    return tf.identity(batch_mean), tf.identity(batch_var)
+
+            mean, var = tf.cond(
+                train_phase,
+                mean_var_with_update,
+                lambda: (ema.average(batch_mean), ema.average(batch_var)))
+            normed = tf.nn.batch_normalization(x, mean, var, beta, gamma, 1e-3)
+        return normed
+
     def _cost(self):
         self.input_y = tf.placeholder(
             tf.int64, [None, self.config['num_classes']], name="input_y")
@@ -461,13 +560,81 @@ class Model(object):
             self.grads_and_vars, global_step=self.global_step)
 
     def _evaluation(self):
-        self.label = tf.arg_max(self.input_y, 1)
-        self.prediction = tf.arg_max(self.logits, 1)
-        self.streaming_accuracy, self.streaming_accuray_op = \
-            tf.contrib.metrics.streaming_accuracy(
-                predictions=self.prediction,
-                labels=self.label,
-                name='streaming_accuracy')
+        with tf.name_scope('compute_accuray'):
+            self.label = tf.arg_max(self.input_y, 1)
+            self.prediction = tf.arg_max(self.logits, 1)
+
+            # training accuracy
+            correct_at_1 = tf.nn.in_top_k(self.logits, self.label, 1)
+            self.accuracy_at_1 =\
+                tf.reduce_mean(tf.cast(correct_at_1, tf.float32))
+
+        with tf.name_scope("test_accuracy"):
+            self.precision_at_1, self.precision_op_at_1 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=self.label,
+                    k=1,
+                    name="precision_at_1")
+            self.recall_at_1, self.recall_op_at_1 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=self.label,
+                    k=1,
+                    name="recall_at1")
+            self.precision_at_2, self.precision_op_at_2 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=self.label,
+                    k=2,
+                    name="precision_at_2")
+            self.recall_at_2, self.recall_op_at_2 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=self.label,
+                    k=2,
+                    name="recall_at2")
+            self.precision_at_3, self.precision_op_at_3 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=self.label,
+                    k=3,
+                    name="precision_at_3")
+            self.recall_at_3, self.recall_op_at_3 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=self.label,
+                    k=3,
+                    name="recall_at3")
+            self.precision_at_4, self.precision_op_at_4 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=self.label,
+                    k=4,
+                    name="precision_at_4")
+            self.recall_at_4, self.recall_op_at_4 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=self.label,
+                    k=4,
+                    name="recall_at4")
+            self.precision_at_5, self.precision_op_at_5 = \
+                tf.contrib.metrics.streaming_sparse_precision_at_k(
+                    predictions=self.logits,
+                    labels=self.label,
+                    k=5,
+                    name="precision_at_5")
+            self.recall_at_5, self.recall_op_at_5 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=self.label,
+                    k=5,
+                    name="recall_at5")
+
+        with tf.name_scope("prdiction_top_k"):
+            lg = tf.nn.softmax(self.logits)
+            self.prediction_top_k_values, self.prediction_top_k_indices = \
+                tf.nn.top_k(lg, 15)
 
     def _summary(self):
         # Keep track of gradient values and sparsity (optional)
@@ -484,18 +651,6 @@ class Model(object):
         grad_summaries_merged = tf.summary.merge(grad_summaries)
 
         # Summaries for loss and accuracy
-        with tf.name_scope('compute_accuray'):
-            self.label = tf.arg_max(self.input_y, 1)
-            self.prediction = tf.arg_max(self.logits, 1)
-            self.streaming_accuracy, self.streaming_accuray_op = \
-                tf.contrib.metrics.streaming_accuracy(
-                    predictions=self.prediction,
-                    labels=self.label,
-                    name='streaming_accuracy')
-
-            correct_at_1 = tf.nn.in_top_k(self.logits, self.label, 1)
-            self.accuracy_at_1 =\
-                tf.reduce_mean(tf.cast(correct_at_1, tf.float32))
 
         loss_summary = tf.summary.scalar("cost", self.cost)
         streaming_accuray_summary =\

@@ -2,9 +2,56 @@
 import pandas as pd
 import numpy as np
 import os
+from collections import Counter
 from tensorflow.contrib import learn
 from gensim.models.word2vec import KeyedVectors
 from sklearn.preprocessing import LabelBinarizer
+from sklearn.metrics import accuracy_score, recall_score
+from sklearn.metrics import precision_score, f1_score
+
+
+def classification_score(y_true, y_prediction):
+
+    def get_top_k(k=1):
+        y_pred = []
+        for i in range(len(y_prediction)):
+            if y_true[i] in y_prediction[i][:k]:
+                y_pred.append(y_true[i])
+            else:
+                y_pred.append(y_prediction[i][0])
+        return y_pred
+    counter = Counter(y_true)
+    weighted = [counter.get(item) for item in y_true]
+    # metrics
+    accuracy = ['accuracy']
+    recall_weighted = ['recall']
+    precision_weighted = ['precision']
+    precision_recommend = ['precision_recommend']
+    f1_score_weighted = ['f1_score']
+    for k in range(1, 16):
+        y_pred = get_top_k(k)
+
+        tmp = accuracy_score(y_true, y_pred)
+        accuracy.append(tmp)
+
+        tmp = recall_score(y_true, y_pred, average='weighted',
+                           sample_weight=weighted)
+        recall_weighted.append(tmp)
+
+        tmp = precision_score(y_true, y_pred, average='weighted',
+                              sample_weight=weighted)
+        precision_weighted.append(tmp)
+
+        tmp = precision_score(y_true, y_pred, average='micro',
+                              sample_weight=weighted)
+        precision_recommend.append(tmp / k)
+
+        tmp = f1_score(y_true, y_pred, average='weighted',
+                       sample_weight=weighted)
+        f1_score_weighted.append(tmp)
+    return np.stack([accuracy, recall_weighted,
+                     precision_weighted, precision_recommend,
+                     f1_score_weighted])
 
 
 def load_files(
@@ -117,7 +164,8 @@ def batch_generator(
 
 if __name__ == '__main__':
     print(os.listdir('../../data/data_by_ocean/eclipse/song_no_select'))
-    data_dir = '../../data/data_by_ocean/eclipse/song_no_select/'
-    data_files = [data_dir + str(i) + '.csv' for i in range(11)]
-    x_train, y_train, x_test,\
-        y_test, vocabulary_processor = load_files(data_files)
+    # data_dir = '../../data/data_by_ocean/eclipse/song_no_select/'
+    # data_files = [data_dir + str(i) + '.csv' for i in range(11)]
+    # x_train, y_train, x_test,\
+    #     y_test, vocabulary_processor = load_files(data_files)
+    classification_score
