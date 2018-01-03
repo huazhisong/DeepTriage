@@ -8,6 +8,9 @@ from gensim.models.word2vec import KeyedVectors
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.metrics import accuracy_score, recall_score
 from sklearn.metrics import precision_score, f1_score
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_selection import chi2, mutual_info_classif
+from sklearn.feature_selection import SelectKBest
 
 
 def classification_score(y_true, y_prediction):
@@ -57,7 +60,8 @@ def classification_score(y_true, y_prediction):
 def load_files(
         data_files, class_file='',
         embedding_file='', validation=False,
-        embedding_dim=300, encode='utf-8'):
+        embedding_dim=300, encode='utf-8',
+        featurs_selection='chi2'):
     # 读取数据
     if validation:
         train_list = data_files[:-2]
@@ -78,14 +82,33 @@ def load_files(
     test = pd.read_csv(test_file, encoding=encode)
     x_test = test.text
     y_test = test.fixer
+
+    # 选择特征
+    vectorizer = TfidfVectorizer()
+    vectors_train = vectorizer.fit_transform(x_train)
+    features_names = vectorizer.get_feature_names()
+    num_features_selected = int(vectors_train.shape[1] * 0.05)
+    if featurs_selection in ['chi2', 'mutual_info_classif']:
+        selection = SelectKBest(
+            eval(featurs_selection), k=num_features_selected)
+        selection.fit(vectors_train, y_train)
+        features_names_selected =\
+            [features_names[k]
+             for k in selection.get_support(indices=True)]
+    vocabulary = learn.preprocessing.CategoricalVocabulary()
+    for feature in features_names_selected:
+        vocabulary.add(feature)
     # 处理文本数据
-    document_length_df = pd.DataFrame([len(xx.split(" ")) for xx in x_train])
+    document_length_df = pd.DataFrame(
+        [len(xx.split(" ")) for xx in x_train])
     document_length = np.int64(document_length_df.quantile(0.8))
 
     vocabulary_processor = \
-        learn.preprocessing.VocabularyProcessor(document_length)
+        learn.preprocessing.VocabularyProcessor(
+            document_length, vocabulary=vocabulary)
 
-    x_train = np.array(list(vocabulary_processor.fit_transform(x_train)))
+    x_train = np.array(
+        list(vocabulary_processor.fit_transform(x_train)))
     x_test = np.array(list(vocabulary_processor.transform(x_test)))
     if validation:
         x_dev = np.array(list(vocabulary_processor.transform(x_dev)))
@@ -168,4 +191,3 @@ if __name__ == '__main__':
     # data_files = [data_dir + str(i) + '.csv' for i in range(11)]
     # x_train, y_train, x_test,\
     #     y_test, vocabulary_processor = load_files(data_files)
-    classification_score

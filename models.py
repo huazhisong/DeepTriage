@@ -655,7 +655,7 @@ class Model(object):
         loss_summary = tf.summary.scalar("cost", self.cost)
         streaming_accuray_summary =\
             tf.summary.scalar("streaming_accuray",
-                              self.streaming_accuray_op)
+                              self.recall_op_at_1)
         accuracy_summary_at_1 = \
             tf.summary.scalar("accuracy_at_1", self.accuracy_at_1)
 

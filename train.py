@@ -23,7 +23,7 @@ tf.flags.DEFINE_integer("embedding_dim", 300,
 tf.flags.DEFINE_string("filter_sizes", "3",
                        "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer(
-    "num_filters", 400, "Number of filters per filter size (default: 400)")
+    "num_filters", 100, "Number of filters per filter size (default: 400)")
 tf.flags.DEFINE_integer(
     "n_hidden", 100, "Size of hidden cell (default: 300)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5,
@@ -38,7 +38,7 @@ tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 100)")
 tf.flags.DEFINE_integer(
     "num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer(
-    "require_improvement", 10,
+    "require_improvement", 5,
     "Require improvement steps for training data (default: 10)")
 tf.flags.DEFINE_integer(
     "evaluate_every", 500,
@@ -152,7 +152,7 @@ def main(_):
     assert model_type in model_types
 
     data_dir = FLAGS.data_dir + train_data
-    data_results = data_dir + "results/" + model_type + '/'
+    data_results = data_dir + "results/" + model_type + '3/'
     if not tf.gfile.Exists(data_results):
         tf.gfile.MakeDirs(data_results)
     FLAGS.checkpointDir = FLAGS.checkpointDir + model_type
