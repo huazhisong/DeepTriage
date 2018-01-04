@@ -10,7 +10,9 @@ from sklearn.metrics import accuracy_score, recall_score
 from sklearn.metrics import precision_score, f1_score
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_selection import chi2, mutual_info_classif
-from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import SelectKBest, SelectPercentile
+
+import prepocessing_bugs
 
 
 def classification_score(y_true, y_prediction):
@@ -57,11 +59,7 @@ def classification_score(y_true, y_prediction):
                      f1_score_weighted])
 
 
-def load_files(
-        data_files, class_file='',
-        embedding_file='', validation=False,
-        embedding_dim=300, encode='utf-8',
-        featurs_selection='chi2'):
+def load_files(data_files, encode='utf-8', validation=False):
     # 读取数据
     if validation:
         train_list = data_files[:-2]
@@ -83,18 +81,44 @@ def load_files(
     x_test = test.text
     y_test = test.fixer
 
+    if validation:
+        return x_train, y_train, x_dev, y_dev, x_test, y_test
+    else:
+        return x_train, y_train, x_test, y_test
+
+
+def features_selection(x_train, y_train, featurs_selection, percent):
     # 选择特征
     vectorizer = TfidfVectorizer()
     vectors_train = vectorizer.fit_transform(x_train)
     features_names = vectorizer.get_feature_names()
-    num_features_selected = int(vectors_train.shape[1] * 0.05)
+    # num_features_selected = int(vectors_train.shape[1] * 0.05)
     if featurs_selection in ['chi2', 'mutual_info_classif']:
-        selection = SelectKBest(
-            eval(featurs_selection), k=num_features_selected)
+        selection = SelectPercentile(
+            eval(featurs_selection), percentile=int(percent * 100))
         selection.fit(vectors_train, y_train)
         features_names_selected =\
             [features_names[k]
              for k in selection.get_support(indices=True)]
+
+    elif featurs_selection in ['WLLR', 'IG', 'MI']:
+        features_names_selected = prepocessing_bugs.feature_selection(
+            [doc.split() for doc in x_train],
+            y_train.values, featurs_selection, percent)
+
+    print('sklearn select features: %d' % len(features_names_selected))
+    print(features_names_selected[:10])
+    return features_names_selected
+
+
+def transform_data(
+        x_train, y_train,
+        x_test, y_test,
+        class_file,
+        features_names_selected,
+        embedding_dim, embedding_file,
+        validation=False, x_dev=None, y_dev=None):
+
     vocabulary = learn.preprocessing.CategoricalVocabulary()
     for feature in features_names_selected:
         vocabulary.add(feature)

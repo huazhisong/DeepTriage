@@ -23,7 +23,7 @@ class Model(object):
         self.is_training = tf.placeholder(tf.bool, name="is_training")
 
         with tf.name_scope('Embedding'):
-            self.embedded_input = self._embedding()
+            self._embedding()
 
         with tf.name_scope('Convolution'):
             eval(self.model_type)
@@ -490,24 +490,22 @@ class Model(object):
         self.h_pool = tf.concat(pooled_outputs, 3)
         self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
 
-        # batch normalization
-        self.bn_input = self._batch_norm_layer(
-            self.h_pool_flat, self.is_training, 'batch_normalization')
+        with tf.name_scope('pooling_block'):
+            current = self.h_pool_flat
+            features = num_filters_total
+            layers = 4
+            growth = 12
+            num_block = 4
 
-        with tf.name_scope("fc_bn"):
-            W = tf.get_variable(
-                "W_fc",
-                shape=[num_filters_total, num_filters_total],
-                initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.Variable(tf.constant(
-                0.1, shape=[num_filters_total]), name="b")
-            self.fc_bn = tf.nn.relu(tf.matmul(self.bn_input, W) + b)
-        # Add dropout
-        with tf.name_scope("dropout"):
             self.dropout_keep_prob = tf.placeholder(
                 tf.float32, name="dropout_keep_prob")
-            # self.h_drop = tf.nn.dropout(
-            #     self.fc_bn, self.dropout_keep_prob)
+            for block in range(num_block):
+                features = num_filters_total
+                current, features = self._block_pooling(
+                    current, layers, features, growth,
+                    self.is_training, self.dropout_keep_prob,
+                    'block_pooling' + str(block))
+                current = self._fc(current, features, num_filters_total)
 
         # Final (unnormalized) scores and predictions
         with tf.name_scope("output"):
@@ -519,7 +517,46 @@ class Model(object):
                 0.1, shape=[self.config['num_classes']]), name="b")
             self.l2_loss += tf.nn.l2_loss(W)
             self.l2_loss += tf.nn.l2_loss(b)
-            self.logits = tf.nn.xw_plus_b(self.fc_bn, W, b, name="scores")
+            self.logits = tf.nn.xw_plus_b(current, W, b, name="scores")
+
+    def _weight_variable(self, shape):
+        initial = tf.truncated_normal(shape, stddev=0.01)
+        return tf.Variable(initial)
+
+    def _bias_variable(self, shape):
+        initial = tf.constant(0.01, shape=shape)
+        return tf.Variable(initial)
+
+    def _fc(self, input, in_features, out_features):
+        W = self._weight_variable([in_features, out_features])
+        b = self._bias_variable([out_features])
+        fc = tf.matmul(input, W) + b
+        return fc
+
+    def _batch_activ_fc(self, current, in_features,
+                        out_features, is_training,
+                        keep_prob, scope_bn):
+
+        current = self._batch_norm_layer(
+            current, is_training, scope_bn)
+        current = tf.nn.relu(current)
+        current = self._fc(current, in_features, out_features)
+        current = tf.nn.dropout(current, keep_prob)
+        return current
+
+    def _block_pooling(self, input, layers,
+                       in_features, growth,
+                       is_training, keep_prob,
+                       scope_bp='block_pooling'):
+        current = input
+        features = in_features
+        with tf.name_scope(scope_bp):
+            for idx in range(layers):
+                temp = self._batch_activ_fc(
+                    current, features, growth,
+                    is_training, keep_prob, scope_bp + str(idx))
+                current = tf.concat([current, temp], axis=-1)
+        return current, features
 
     def _batch_norm_layer(self, x, train_phase, scope_bn):
         with tf.variable_scope(scope_bn):
@@ -528,7 +565,8 @@ class Model(object):
             gamma = tf.Variable(tf.constant(
                 1.0, shape=[x.shape[-1]]), name='gamma', trainable=True)
             axises = np.arange(len(x.shape) - 1)
-            batch_mean, batch_var = tf.nn.moments(x, axises, name='moments')
+            batch_mean, batch_var = tf.nn.moments(
+                x, axises, name='moments')
             ema = tf.train.ExponentialMovingAverage(decay=0.5)
 
             def mean_var_with_update():
@@ -540,7 +578,8 @@ class Model(object):
                 train_phase,
                 mean_var_with_update,
                 lambda: (ema.average(batch_mean), ema.average(batch_var)))
-            normed = tf.nn.batch_normalization(x, mean, var, beta, gamma, 1e-3)
+            normed = tf.nn.batch_normalization(
+                x, mean, var, beta, gamma, 1e-3)
         return normed
 
     def _cost(self):
