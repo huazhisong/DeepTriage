@@ -159,7 +159,6 @@ def main(_):
 
     data_dir = FLAGS.data_dir + train_data
     data_results = data_dir + "results/" + model_type + '3/'
-    data_results += FLAGS.features_selection + '/'
     if not tf.gfile.Exists(data_results):
         tf.gfile.MakeDirs(data_results)
     FLAGS.checkpointDir = FLAGS.checkpointDir + model_type
@@ -168,14 +167,18 @@ def main(_):
     x_train, y_train, x_dev, y_dev = data_utls.load_files(
         data_files, validation=False)
     percentiles = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    # 'MI'
     featurs_selections = ['chi2', 'mutual_info_classif', 'WLLR', 'IG', 'MI']
     for featurs_selection in featurs_selections:
+        data_dir = data_results + featurs_selection + '/'
+        if not tf.gfile.Exists(data_dir):
+            tf.gfile.MakeDirs(data_dir)
         for percentile in percentiles:
             FLAGS.features_selection = featurs_selection
             FLAGS.percentile = percentile
             features_names_selected = data_utls.features_selection(
                 x_train, y_train, FLAGS.features_selection, FLAGS.percentile)
-            x_train_tmp, y_train_tmp, x_test, y_test, embedding, lb =\
+            x_train_t, y_train_t, x_test, y_test, document_length, embedding, lb =\
                 data_utls.transform_data(
                     x_train, y_train, x_dev, y_dev, class_file,
                     features_names_selected,
@@ -184,27 +187,28 @@ def main(_):
             for attr, value in sorted(FLAGS.__flags.items()):
                 print("{}={}".format(attr.upper(), value))
             print("")
-            train(x_train_tmp, y_train_tmp, x_test, y_test, lb, embedding,
-                  model_type, data_results, train_index)
+            config_model = {
+                'num_filters': FLAGS.num_filters,
+                'filter_sizes': list(map(int, FLAGS.filter_sizes.split(","))),
+                'n_hidden': FLAGS.n_hidden,
+                'embedding_type': FLAGS.embedding_type,
+                'l2_reg_lambda': FLAGS.l2_reg_lambda,
+                'learning_rate': FLAGS.learning_rate,
+                'max_sent_length': x_train.shape[1],
+                'num_classes': len(lb.classes_),
+                'embedding_shape': embedding.shape,
+                'train_phase': True
+            }
+            train(x_train_t, y_train_t, x_test, y_test, lb, embedding,
+                  model_type, data_dir, train_index, config_model)
 
 
 def train(
         x_train, y_train,
         x_dev, y_dev, lb,
         embedding, model_type,
-        data_results, train_index):
-    config_model = {
-        'num_filters': FLAGS.num_filters,
-        'filter_sizes': list(map(int, FLAGS.filter_sizes.split(","))),
-        'n_hidden': FLAGS.n_hidden,
-        'embedding_type': FLAGS.embedding_type,
-        'l2_reg_lambda': FLAGS.l2_reg_lambda,
-        'learning_rate': FLAGS.learning_rate,
-        'max_sent_length': x_train.shape[1],
-        'num_classes': len(lb.classes_),
-        'embedding_shape': embedding.shape,
-        'train_phase': True
-    }
+        data_results, train_index,
+        config_model):
     tf.reset_default_graph()
     with tf.Graph().as_default():
         session_conf = tf.ConfigProto(

@@ -20,7 +20,7 @@ tf.flags.DEFINE_string("checkpointDir", "./logs/", "log dir")
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 300,
                         "Dimensionality of character embedding (default: 128)")
-tf.flags.DEFINE_string("filter_sizes", "3",
+tf.flags.DEFINE_string("filter_sizes", "3,4,5",
                        "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer(
     "num_filters", 100, "Number of filters per filter size (default: 400)")
@@ -61,12 +61,13 @@ tf.flags.DEFINE_string(
     "embedding_type", "non_static",
     "rand, static,non_static, multiple_channels (default: 'rand')")
 tf.flags.DEFINE_string(
-    "features_selection", 'chi2',
-    "features selection methos (default: 'chi2')")
+    "features_selection", 'MI',
+    "features selection methos (default: 'MI')")
 tf.flags.DEFINE_float(
-    "percentile", 0.5,
-    "features selection percentile (default: 0.5)")
+    "percentile", 1.0,
+    "features selection percentile (default: 0.3)")
 FLAGS = tf.flags.FLAGS
+tf.set_random_seed(1)
 
 
 def train_step(cnn, train_summary_writer, sess, x_batch_train, y_batch_train):
@@ -152,10 +153,11 @@ def main(_):
     model_types = ["textcnn", "multi_layers_cnn",
                    "hierarchical_cnn", "textlstm",
                    "text_bilstm", "text_cnn_lstm",
-                   "text_dense"]
-    model_types = ["text_dense"]
-    train_indexes = [1]
-    train_data = "eclipse/song_no_select/"
+                   "text_dense", "text_conv_dense"]
+    model_types = ["textcnn", "text_dense"]
+    # model_types = ["text_conv_dense"]
+    train_indexes = range(1, 2)
+    train_data = "eclipse/"  # song_no_select/"
     data_dir = FLAGS.data_dir + train_data
     for train_index in train_indexes:
         data_files = [data_dir +
@@ -167,8 +169,8 @@ def main(_):
             data_files, validation=False)
         features_names_selected = data_utls.features_selection(
             x_train, y_train, FLAGS.features_selection, FLAGS.percentile)
-        x_train, y_train, x_test, y_test, embedding, lb =\
-            data_utls.transform_data(
+        x_train, y_train, x_dev, y_dev, document_length, embedding, lb =\
+            data_utls.transform_data_hand(
                 x_train, y_train, x_dev, y_dev, class_file,
                 features_names_selected,
                 FLAGS.embedding_dim, embedding_file)
@@ -179,13 +181,13 @@ def main(_):
             'embedding_type': FLAGS.embedding_type,
             'l2_reg_lambda': FLAGS.l2_reg_lambda,
             'learning_rate': FLAGS.learning_rate,
-            'max_sent_length': x_train.shape[1],
+            'max_sent_length': document_length,
             'num_classes': len(lb.classes_),
             'embedding_shape': embedding.shape,
             'train_phase': True
         }
         for model_type in model_types:
-            data_results = data_dir + "results/" + model_type
+            data_results = data_dir + "results/" + model_type + "/"
             if not tf.gfile.Exists(data_results):
                 tf.gfile.MakeDirs(data_results)
             FLAGS.checkpointDir = FLAGS.checkpointDir + model_type
@@ -268,13 +270,14 @@ def train(
             current_step = tf.train.global_step(sess, cnn.global_step)
             path = saver.save(sess, checkpoint_prefix,
                               global_step=current_step)
+            train_summary_writer.close()
             test_summary_dir = os.path.abspath(
                 os.path.join(FLAGS.checkpointDir, "summaries", "test"))
             test_summary_writer = tf.summary.FileWriter(
                 test_summary_dir, sess.graph)
             print("\n Testing:")
             dev_batches = data_utls.batch_generator(
-                x_dev, y_dev, lb, 1)
+                x_dev, y_dev, lb, FLAGS.batch_size)
             step = 0
             top_k_values = []
             top_k_indices = []
@@ -304,6 +307,7 @@ def train(
                         recall_accuracy_5 {:g}".format(time_str,
                                                        step, loss,
                                                        recall[1], recall[5]))
+            test_summary_writer.close()
             metrics = data_utls.classification_score(labels, top_k_indices)
             fake_metrics = np.stack([recall, precision])
             prediction_file = data_results + \
