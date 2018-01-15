@@ -160,33 +160,34 @@ def main(_):
     train_data = "eclipse/"  # song_no_select/"
     data_dir = FLAGS.data_dir + train_data
     for train_index in train_indexes:
-        data_files = [data_dir +
-                      str(i) + '.csv' for i in range(train_index + 1)]
-        if not tf.gfile.Exists(data_dir + "results/"):
-            tf.gfile.MakeDirs(data_dir + "results/")
-        class_file = data_dir + "results/class_" + str(train_index) + ".csv"
-        x_train, y_train, x_dev, y_dev = data_utls.load_files(
-            data_files, validation=False)
-        features_names_selected = data_utls.features_selection(
-            x_train, y_train, FLAGS.features_selection, FLAGS.percentile)
-        x_train, y_train, x_dev, y_dev, document_length, embedding, lb =\
-            data_utls.transform_data_hand(
-                x_train, y_train, x_dev, y_dev, class_file,
-                features_names_selected,
-                FLAGS.embedding_dim, embedding_file)
-        config_model = {
-            'num_filters': FLAGS.num_filters,
-            'filter_sizes': list(map(int, FLAGS.filter_sizes.split(","))),
-            'n_hidden': FLAGS.n_hidden,
-            'embedding_type': FLAGS.embedding_type,
-            'l2_reg_lambda': FLAGS.l2_reg_lambda,
-            'learning_rate': FLAGS.learning_rate,
-            'max_sent_length': document_length,
-            'num_classes': len(lb.classes_),
-            'embedding_shape': embedding.shape,
-            'train_phase': True
-        }
         for model_type in model_types:
+            data_files = [data_dir +
+                          str(i) + '.csv' for i in range(train_index + 1)]
+            if not tf.gfile.Exists(data_dir + "results/"):
+                tf.gfile.MakeDirs(data_dir + "results/")
+            class_file = data_dir + "results/class_" +\
+                str(train_index) + ".csv"
+            x_train, y_train, x_dev, y_dev = data_utls.load_files(
+                data_files, validation=False)
+            features_names_selected = data_utls.features_selection(
+                x_train, y_train, FLAGS.features_selection, FLAGS.percentile)
+            x_train, y_train, x_dev, y_dev, document_length, embedding, lb =\
+                data_utls.transform_data_hand(
+                    x_train, y_train, x_dev, y_dev, class_file,
+                    features_names_selected,
+                    FLAGS.embedding_dim, embedding_file)
+            config_model = {
+                'num_filters': FLAGS.num_filters,
+                'filter_sizes': list(map(int, FLAGS.filter_sizes.split(","))),
+                'n_hidden': FLAGS.n_hidden,
+                'embedding_type': FLAGS.embedding_type,
+                'l2_reg_lambda': FLAGS.l2_reg_lambda,
+                'learning_rate': FLAGS.learning_rate,
+                'max_sent_length': document_length,
+                'num_classes': len(lb.classes_),
+                'embedding_shape': embedding.shape,
+                'train_phase': True
+            }
             data_results = data_dir + "results/" + model_type + "/"
             if not tf.gfile.Exists(data_results):
                 tf.gfile.MakeDirs(data_results)
