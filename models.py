@@ -485,20 +485,18 @@ class Model(object):
                 pooled_outputs.append(pooled)
 
         # Combine all the pooled features
-        num_filters_total = self.config['num_filters'] *\
-            len(self.config['filter_sizes'])
-        self.h_pool = tf.concat(pooled_outputs, 3)
-        self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
-
+        h = tf.concat(pooled_outputs, axis=-1)
+        num_filters_total = h.get_shape().as_list()[-1]
+        current = tf.reshape(h, [-1, num_filters_total])
+        self.dropout_keep_prob = tf.placeholder(
+            tf.float32, name="dropout_keep_prob")
         with tf.name_scope('pooling_block'):
             current = self.h_pool_flat
             features = num_filters_total
-            layers = 1
-            growth = 3
-            num_block = 1
+            layers = 4
+            growth = 12
+            num_block = 2
 
-            self.dropout_keep_prob = tf.placeholder(
-                tf.float32, name="dropout_keep_prob")
             for block in range(num_block):
                 features = num_filters_total
                 current, features = self._block_pooling(
@@ -507,6 +505,8 @@ class Model(object):
                     'block_pooling' + str(block))
                 current = self._fc(current, features, num_filters_total)
 
+        current = tf.nn.dropout(
+            current, self.dropout_keep_prob)
         # Final (unnormalized) scores and predictions
         with tf.name_scope("output"):
             W = tf.get_variable(
@@ -517,26 +517,26 @@ class Model(object):
                 0.1, shape=[self.config['num_classes']]), name="b")
             self.l2_loss += tf.nn.l2_loss(W)
             self.l2_loss += tf.nn.l2_loss(b)
-            self.logits = tf.nn.xw_plus_b(current, W, b, name="scores")
+            self.logits = tf.nn.xw_plus_b(
+                current, W, b, name="scores")
 
     def _text_conv_dense(self):
         with tf.name_scope('conv1'):
-            normed_input = self._batch_norm_layer(
-                self.input_embedded, self.is_training, 'conv1_bn')
             num_in = 1 if not self.config['embedding_type'] ==\
                 'multiple_channels' else 2
-            with tf.name_scope('conv1'):
+            with tf.name_scope('conv'):
                 W = self._weight_variable(
-                    shape=[3, self.config['embedding_shape'][1],
-                           num_in, num_in])
+                    shape=[1, self.config['embedding_shape'][1],
+                           num_in, self.config['num_filters']])
                 conv1 = tf.nn.conv2d(
-                    normed_input, W, [1, 1, 1, 1], padding='VALID')
+                    self.input_embedded, W, [1, 1, 1, 1], padding='VALID')
         with tf.name_scope('block_conv'):
             current = conv1
-            features = num_in
-            layers = 2
-            growth = 3
-            num_block = 2
+
+            features = self.config['num_filters']
+            layers = 1
+            growth = 12
+            num_block = 1
             self.dropout_keep_prob = tf.placeholder(
                 tf.float32, name="dropout_keep_prob")
             for block in range(num_block - 1):
@@ -586,7 +586,7 @@ class Model(object):
                 out_features, kernel_size,
                 with_bias=False):
         W = self._weight_variable(
-            [kernel_size, kernel_size, in_features, out_features])
+            [kernel_size, 1, in_features, out_features])
         conv = tf.nn.conv2d(input, W, [1, 1, 1, 1], padding='SAME')
         if with_bias:
             return conv + self._bias_variable([out_features])
@@ -606,7 +606,7 @@ class Model(object):
             current, is_training, scope_bn)
         current = tf.nn.relu(current)
         current = self._fc(current, in_features, out_features)
-        current = tf.nn.dropout(current, keep_prob)
+        # current = tf.nn.dropout(current, keep_prob)
         return current
 
     def _batch_activ_conv(self, current, in_features,
@@ -617,7 +617,7 @@ class Model(object):
         current = tf.nn.relu(current)
         current = self._conv2d(
             current, in_features, out_features, kernel_size)
-        current = tf.nn.dropout(current, keep_prob)
+        # current = tf.nn.dropout(current, keep_prob)
         return current
 
     def _avg_pool(self, input, s):
@@ -658,7 +658,7 @@ class Model(object):
                 0.0, shape=[x.shape[-1]]), name='beta', trainable=True)
             gamma = tf.Variable(tf.constant(
                 1.0, shape=[x.shape[-1]]), name='gamma', trainable=True)
-            axises = np.arange(len(x.shape) - 1)
+            axises = list(range(len(x.shape) - 1))
             batch_mean, batch_var = tf.nn.moments(
                 x, axises, name='moments')
             ema = tf.train.ExponentialMovingAverage(decay=0.5)

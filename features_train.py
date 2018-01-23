@@ -20,7 +20,7 @@ tf.flags.DEFINE_string("checkpointDir", "./logs/", "log dir")
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 300,
                         "Dimensionality of character embedding (default: 128)")
-tf.flags.DEFINE_string("filter_sizes", "3",
+tf.flags.DEFINE_string("filter_sizes", "3,4,5",
                        "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer(
     "num_filters", 100, "Number of filters per filter size (default: 400)")
@@ -38,7 +38,7 @@ tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 100)")
 tf.flags.DEFINE_integer(
     "num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer(
-    "require_improvement", 5,
+    "require_improvement", 10,
     "Require improvement steps for training data (default: 10)")
 tf.flags.DEFINE_integer(
     "evaluate_every", 500,
@@ -67,6 +67,8 @@ tf.flags.DEFINE_float(
     "percentile", 0.5,
     "features selection percentile (default: 0.5)")
 FLAGS = tf.flags.FLAGS
+tf.set_random_seed(1)
+np.random.seed(1)
 
 
 def train_step(cnn, train_summary_writer, sess, x_batch_train, y_batch_train):
@@ -170,7 +172,7 @@ def main(_):
     percentiles = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     featurs_selections = ['chi2', 'mutual_info_classif', 'WLLR', 'IG', 'MI']
     for featurs_selection in featurs_selections:
-        data_dir = data_results + featurs_selection + '/'
+        data_dir = data_results + '/' + featurs_selection + '/'
         if not tf.gfile.Exists(data_dir):
             tf.gfile.MakeDirs(data_dir)
         for percentile in percentiles:

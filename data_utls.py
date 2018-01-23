@@ -61,6 +61,7 @@ def classification_score(y_true, y_prediction):
 
 
 def load_files(data_files, encode='latin2', validation=False):
+    # 使用同一种数据源进行训练和测试
     # 读取数据
     if validation:
         train_list = data_files[:-2]
@@ -86,6 +87,20 @@ def load_files(data_files, encode='latin2', validation=False):
         return x_train, y_train.values, x_dev, y_dev, x_test, y_test
     else:
         return x_train, y_train.values, x_test, y_test
+
+
+def load_train_test_files(train_files, test_file, encode='utf8'):
+    # 使用不同数据源进行训练和测试
+    # 读取数据
+    train = pd.concat([pd.read_csv(file, encoding=encode)
+                       for file in train_files])
+    x_train = train.text
+    y_train = train.fixer
+    test = pd.read_csv(test_file, encoding=encode)
+    x_test = test.text
+    y_test = test.fixer
+
+    return x_train, y_train.values, x_test, y_test
 
 
 def features_selection(x_train, y_train, featurs_selection, percent):

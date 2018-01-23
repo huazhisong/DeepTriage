@@ -11,8 +11,9 @@ from datetime import timedelta
 from nltk.corpus import stopwords
 
 
-# select summary, description and comments
 def select_lines_include_reply(lines_raw):
+    # select summary, description
+    # including name
     selected_lines = []
     for line in lines_raw:
         line = line.strip()
@@ -35,10 +36,10 @@ def select_lines_comments(lines_raw):
         selected_lines.append(line)
     return selected_lines
 
-# select summary and description, no comments
-
 
 def select_lines(lines_raw):
+    # select summary and description, no comments
+    # no namse
     selected_lines = []
     for line in lines_raw:
         line = line.strip()
@@ -55,6 +56,8 @@ def select_lines(lines_raw):
 
 
 def clean_raw(raw_text):
+    # select summary, description, comments
+    # including name
     return raw_text.strip()
 
 

@@ -28,7 +28,7 @@ tf.flags.DEFINE_integer(
     "n_hidden", 100, "Size of hidden cell (default: 300)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5,
                       "Dropout keep probability (default: 0.5)")
-tf.flags.DEFINE_float("l2_reg_lambda", 0.0,
+tf.flags.DEFINE_float("l2_reg_lambda", 0,
                       "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_float("learning_rate", 1e-4, "learning rate")
 tf.flags.DEFINE_float("decay_rate", 0.96, "decay rate")
@@ -38,7 +38,7 @@ tf.flags.DEFINE_integer("batch_size", 100, "Batch Size (default: 100)")
 tf.flags.DEFINE_integer(
     "num_epochs", 200, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer(
-    "require_improvement", 5,
+    "require_improvement", 10,
     "Require improvement steps for training data (default: 10)")
 tf.flags.DEFINE_integer(
     "evaluate_every", 500,
@@ -68,6 +68,7 @@ tf.flags.DEFINE_float(
     "features selection percentile (default: 0.3)")
 FLAGS = tf.flags.FLAGS
 tf.set_random_seed(1)
+np.random.seed(1)
 
 
 def train_step(cnn, train_summary_writer, sess, x_batch_train, y_batch_train):
@@ -154,10 +155,11 @@ def main(_):
                    "hierarchical_cnn", "textlstm",
                    "text_bilstm", "text_cnn_lstm",
                    "text_dense", "text_conv_dense"]
-    model_types = ["textcnn", "text_dense"]
+    model_types = ["text_conv_dense"]
     # model_types = ["text_conv_dense"]
     train_indexes = range(1, 2)
-    train_data = "eclipse/"  # song_no_select/"
+    train_data = "eclipse/song_no_select/"
+    # test_data = 'eclipse/song_no_select_summary_description/'
     data_dir = FLAGS.data_dir + train_data
     for train_index in train_indexes:
         for model_type in model_types:
@@ -169,6 +171,16 @@ def main(_):
                 str(train_index) + ".csv"
             x_train, y_train, x_dev, y_dev = data_utls.load_files(
                 data_files, validation=False)
+            # train_files = [data_dir +
+            #                str(i) + '.csv' for i in range(train_index)]
+            # test_file = FLAGS.data_dir + test_data + str(train_index) +'.csv'
+            # if not tf.gfile.Exists(data_dir + "results/"):
+            #     tf.gfile.MakeDirs(data_dir + "results/")
+            # class_file = data_dir + "results/class_" +\
+            #     str(train_index) + ".csv"
+            # x_train, y_train, x_dev, y_dev = data_utls.load_train_test_files(
+            #     train_files, test_file)
+
             features_names_selected = data_utls.features_selection(
                 x_train, y_train, FLAGS.features_selection, FLAGS.percentile)
             x_train, y_train, x_dev, y_dev, document_length, embedding, lb =\
@@ -201,6 +213,7 @@ def train(
         x_train, y_train, x_dev, y_dev,
         lb, model_type, config_model,
         embedding, data_results, train_index):
+    tf.reset_default_graph()
     with tf.Graph().as_default():
         session_conf = tf.ConfigProto(
             allow_soft_placement=FLAGS.allow_soft_placement,
