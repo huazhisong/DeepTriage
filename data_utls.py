@@ -5,7 +5,7 @@ import os
 import re
 from collections import Counter
 from tensorflow.contrib import learn
-from gensim.models.word2vec import KeyedVectors
+from gensim.models import KeyedVectors
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.metrics import accuracy_score, recall_score
 from sklearn.metrics import precision_score, f1_score

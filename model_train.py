@@ -25,12 +25,12 @@ tf.flags.DEFINE_string("filter_sizes", "3,4,5",
 tf.flags.DEFINE_integer(
     "num_filters", 100, "Number of filters per filter size (default: 400)")
 tf.flags.DEFINE_integer(
-    "n_hidden", 100, "Size of hidden cell (default: 300)")
+    "n_hidden", 1024, "Size of hidden cell (default: 300)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5,
                       "Dropout keep probability (default: 0.5)")
-tf.flags.DEFINE_float("l2_reg_lambda", 0,
+tf.flags.DEFINE_float("l2_reg_lambda", 0.0,
                       "L2 regularization lambda (default: 0.0)")
-tf.flags.DEFINE_float("learning_rate", 1e-4, "learning rate")
+tf.flags.DEFINE_float("learning_rate", 1e-3, "learning rate")
 tf.flags.DEFINE_float("decay_rate", 0.96, "decay rate")
 
 # Training parameters
@@ -61,8 +61,8 @@ tf.flags.DEFINE_string(
     "embedding_type", "non_static",
     "rand, static,non_static, multiple_channels (default: 'rand')")
 tf.flags.DEFINE_string(
-    "features_selection", 'MI',
-    "features selection methos (default: 'MI')")
+    "features_selection", 'chi2',
+    "features selection methos (default: 'chi2')")
 tf.flags.DEFINE_float(
     "percentile", 1.0,
     "features selection percentile (default: 0.3)")
@@ -154,13 +154,17 @@ def main(_):
     model_types = ["textcnn", "multi_layers_cnn",
                    "hierarchical_cnn", "textlstm",
                    "text_bilstm", "text_cnn_lstm",
-                   "text_dense", "text_conv_dense"]
-    model_types = ["text_conv_dense"]
+                   "text_dense", "text_conv_dense",
+                   "text_dp_cnn", "text_inception",
+                   "text_inception_dense"]
+    model_types = ["inception_dense_net"]
     # model_types = ["text_conv_dense"]
-    train_indexes = range(1, 2)
-    train_data = "eclipse/song_no_select/"
+    train_indexes = range(1, 11)
+    # song_no_select_summary_description song_no_select
+    train_data = "mozilla/"
     # test_data = 'eclipse/song_no_select_summary_description/'
     data_dir = FLAGS.data_dir + train_data
+    checkpointDir = FLAGS.checkpointDir
     for train_index in train_indexes:
         for model_type in model_types:
             data_files = [data_dir +
@@ -188,6 +192,9 @@ def main(_):
                     x_train, y_train, x_dev, y_dev, class_file,
                     features_names_selected,
                     FLAGS.embedding_dim, embedding_file)
+            num_batches_per_epoch = int(
+                (18182 * (train_index + 1) - 1) / FLAGS.batch_size) + 1
+            decay_steps = int(num_batches_per_epoch * FLAGS.num_epochs * 0.1)
             config_model = {
                 'num_filters': FLAGS.num_filters,
                 'filter_sizes': list(map(int, FLAGS.filter_sizes.split(","))),
@@ -198,12 +205,15 @@ def main(_):
                 'max_sent_length': document_length,
                 'num_classes': len(lb.classes_),
                 'embedding_shape': embedding.shape,
-                'train_phase': True
+                'train_phase': True,
+                'batch_size': FLAGS.batch_size,
+                'decay_steps': decay_steps,
+                'decay_rate': FLAGS.decay_rate
             }
             data_results = data_dir + "results/" + model_type + "/"
+            FLAGS.checkpointDir = checkpointDir + model_type
             if not tf.gfile.Exists(data_results):
                 tf.gfile.MakeDirs(data_results)
-            FLAGS.checkpointDir = FLAGS.checkpointDir + model_type
             train(x_train, y_train, x_dev, y_dev,
                   lb, model_type, config_model,
                   embedding, data_results, train_index)
@@ -273,12 +283,14 @@ def train(
                     path = saver.save(sess, checkpoint_prefix,
                                       global_step=current_step)
                     print("Saved model checkpoint to {}\n".format(path))
-                if accuracy > best_accuracy:
+                if accuracy >= best_accuracy:
                     best_accuracy = accuracy
                     last_improvement_step = current_step
+                else:
+                    cnn.learning_rate = cnn.learning_rate * 0.1
                 if ((current_step - last_improvement_step) >
                     (FLAGS.require_improvement * numer_iter) or
-                        (best_accuracy == 1.0)):
+                        (best_accuracy >= 1.0)):
                     print('no more improving!')
                     break
             current_step = tf.train.global_step(sess, cnn.global_step)

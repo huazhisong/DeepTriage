@@ -154,8 +154,10 @@ def main(_):
     model_types = ["textcnn", "multi_layers_cnn",
                    "hierarchical_cnn", "textlstm",
                    "text_bilstm", "text_cnn_lstm",
-                   "text_dense"]
-    model_type = "textcnn"
+                   "text_dense", "text_conv_dense",
+                   "text_dp_cnn", "text_inception",
+                   "text_inception_dense"]
+    model_type = "text_inception_dense"
     assert model_type in model_types
 
     FLAGS.checkpointDir = FLAGS.checkpointDir + model_type
@@ -170,7 +172,8 @@ def main(_):
     x_train, y_train, x_dev, y_dev = data_utls.load_files(
         data_files, validation=False)
     percentiles = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    featurs_selections = ['chi2', 'mutual_info_classif', 'WLLR', 'IG', 'MI']
+    # featurs_selections = ['chi2', 'mutual_info_classif', 'WLLR', 'IG', 'MI']
+    featurs_selections = ['chi2']
     for featurs_selection in featurs_selections:
         data_dir = data_results + '/' + featurs_selection + '/'
         if not tf.gfile.Exists(data_dir):

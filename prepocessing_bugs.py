@@ -11,21 +11,9 @@ from datetime import timedelta
 from nltk.corpus import stopwords
 
 
-def select_lines_include_reply(lines_raw):
-    # select summary, description
-    # including name
-    selected_lines = []
-    for line in lines_raw:
-        line = line.strip()
-        if line == '':
-            continue
-        if r'[reply] Comment' in line:
-            break
-        selected_lines.append(line)
-    return selected_lines
-
-
 def select_lines_comments(lines_raw):
+    # including summary, description, comments
+    # no names
     selected_lines = []
     for line in lines_raw:
         line = line.strip()
@@ -39,7 +27,7 @@ def select_lines_comments(lines_raw):
 
 def select_lines(lines_raw):
     # select summary and description, no comments
-    # no namse
+    # no names
     selected_lines = []
     for line in lines_raw:
         line = line.strip()
@@ -52,13 +40,31 @@ def select_lines(lines_raw):
         selected_lines.append(line)
     return selected_lines
 
-# do nothing but strip() methed
+
+def select_lines_include_reply(lines_raw):
+    # select summary, description, no comments
+    # including name
+    selected_lines = []
+    for line in lines_raw:
+        line = line.strip()
+        if line == '':
+            continue
+        if r'[reply] Comment' in line:
+            break
+        selected_lines.append(line)
+    return selected_lines
 
 
 def clean_raw(raw_text):
     # select summary, description, comments
     # including name
-    return raw_text.strip()
+    selected_lines = []
+    for line in raw_text:
+        line = line.strip()
+        if line == '':
+            continue
+        selected_lines.append(line)
+    return selected_lines
 
 
 # utlize cnn clean_str method to clean
@@ -110,9 +116,9 @@ def read_lines(file_path):
     # open description file
     with open(file_path, encoding='latin2') as f:
         # remove last 5 lines
-        lines_raw = f.readlines()[:-5]
+        lines_raw = f.readlines()
         # read lines specially
-        selected_lines = select_lines_include_reply(lines_raw)
+        selected_lines = clean_raw(lines_raw)
         # raw text
         raw_text = ' '.join(selected_lines)
         # decode utf8 coding
@@ -131,6 +137,8 @@ def read_lines(file_path):
             # clearn word
             tmp = clean_words(raw_words, wnl, english_stopwords)
             tokens.extend(tmp)
+
+        assert len(tokens) > 0
         line = ' '.join(tokens)
 
     return line
@@ -144,7 +152,7 @@ def parse_when(when):
     return t.strftime('%Y-%m-%d %H:%M:%S')
 
 
-def merged_files():
+def merged_files(data_files, results_files):
     # 读取文件，处理并写入bugs_all.csv文件
     for bug_file in os.listdir(data_files + '/buglist'):
         bug_dir = bug_file.split('.')[0]
@@ -382,18 +390,23 @@ def filter_by_feature_selection(data_dir, fs_method='IG',
 
 
 if __name__ == '__main__':
+    """
+    import nltk
+    nltk.download('punkt')
+    nltk.download('stopwords')
+    nltk.download('averaged_perceptron_tagger')
+    nltk.download('wordnet')
+    """
     # 文件存储位置
-    data_dir = '../data/data_by_ocean'
+    data_dir = '../../../data/'
     data_set = '/eclipse'
     data_files = data_dir + data_set
     sub_dir = '/song_no_select/'
     results_files = data_files + sub_dir + 'bugs_all.csv'
-    # # 写入列名
-    # with open(results_files, 'w') as f:
-    #     f.write('when,id,who,text,fixer\n')
-    # # 合并文件
-    # merged_files()
-    # # 将文件分成十一份
-    # sortedbytimesplited(results_files)
-    print(os.listdir(data_files + sub_dir))
-    filter_by_feature_selection(data_files + sub_dir)
+    # 写入列名
+    with open(results_files, 'w') as f:
+        f.write('when,id,who,text,fixer\n')
+    # 合并文件
+    merged_files(data_files, results_files)
+    # 将文件分成十一份
+    sortedbytimesplited(results_files)
