@@ -40,6 +40,139 @@ class Model(object):
         with tf.name_scope('Summaries'):
             self._summary()
 
+    def _dpcnn(self):
+
+            with tf.name_scope('Inception'):
+                # conv 1*100
+                strides = [1, 1, 1, 1]
+                embedding_shape = self.config['embedding_shape']
+                # input channels
+                num_outputs = 1 if not self.config['embedding_type'] ==\
+                    'multiple_channels' else 2
+                with tf.name_scope('conv1'):
+                    pad_input = self.input_embedded
+                    # filter
+                    num_in = num_outputs
+                    num_filter = 2 ** 7
+                    # filter size 1*1
+                    filter_shape = [1, embedding_shape[1], num_in, num_filter]
+                    # filter weights matrix
+                    W_filter = self._weight_variable(filter_shape)
+                    b_filter = self._bias_variable([num_filter])
+                    conv1 = tf.nn.conv2d(
+                        pad_input,
+                        W_filter,
+                        strides=strides,
+                        padding='VALID')
+                    a = tf.nn.relu(tf.nn.bias_add(conv1, b_filter))
+                with tf.name_scope('conv3'):
+                    paddings = tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]])
+                    pad_input = tf.pad(self.input_embedded, paddings, "CONSTANT")
+                    num_in = num_outputs
+                    num_filter = 2 ** 7
+                    # filter size 1*1
+                    filter_shape = [3, embedding_shape[1], num_in, num_filter]
+                    # filter weights matrix
+                    W_filter = self._weight_variable(filter_shape)
+                    b_filter = self._bias_variable([num_filter])
+                    conv3 = tf.nn.conv2d(
+                        pad_input,
+                        W_filter,
+                        strides=strides,
+                        padding='VALID')
+                    a3 = tf.nn.relu(tf.nn.bias_add(conv3, b_filter))
+                with tf.name_scope('conv5'):
+                    paddings = tf.constant([[0, 0], [2, 2], [0, 0], [0, 0]])
+                    pad_input = tf.pad(self.input_embedded, paddings, "CONSTANT")
+                    num_in = num_outputs
+                    num_filter = 2 ** 7
+                    # filter size 1*1
+                    filter_shape = [5, embedding_shape[1], num_in, num_filter]
+                    # filter weights matrix
+                    W_filter = self._weight_variable(filter_shape)
+                    b_filter = self._bias_variable([num_filter])
+                    conv5 = tf.nn.conv2d(
+                        pad_input,
+                        W_filter,
+                        strides=strides,
+                        padding='VALID')
+                    a5 = tf.nn.relu(tf.nn.bias_add(conv5, b_filter))
+                with tf.name_scope('conv7'):
+                    paddings = tf.constant([[0, 0], [3, 3], [0, 0], [0, 0]])
+                    pad_input = tf.pad(self.input_embedded, paddings, "CONSTANT")
+                    num_in = num_outputs
+                    num_filter = 2 ** 7
+                    # filter size 1*1
+                    filter_shape = [7, embedding_shape[1], num_in, num_filter]
+                    # filter weights matrix
+                    W_filter = self._weight_variable(filter_shape)
+                    b_filter = self._bias_variable([num_filter])
+                    conv7 = tf.nn.conv2d(
+                        pad_input,
+                        W_filter,
+                        strides=strides,
+                        padding='VALID')
+                    a7 = tf.nn.relu(tf.nn.bias_add(conv7, b_filter))
+                # max pooling
+                with tf.name_scope('max_pooling'):
+                    paddings = tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]])
+                    pad_input = tf.pad(self.input_embedded, paddings, "CONSTANT")
+                    pad_input = tf.transpose(pad_input, [0, 1, 3, 2])
+                    max_pooling = tf.nn.max_pool(
+                        pad_input,
+                        ksize=[1, 3, 1, 1],
+                        strides=strides,
+                        padding='VALID')
+                    num_in = embedding_shape[1]
+                    num_filter = 2 ** 7
+                    # filter size 1*1
+                    filter_shape = [1, 1, num_in, num_filter]
+                    # filter weights matrix
+                    W_filter = self._weight_variable(filter_shape)
+                    b_filter = self._bias_variable([num_filter])
+                    max_pooling = tf.nn.conv2d(
+                        max_pooling,
+                        W_filter,
+                        strides=strides,
+                        padding='VALID')
+                    max_pooling = tf.nn.relu(tf.nn.bias_add(max_pooling, b_filter))
+
+                with tf.name_scope('concat'):
+                    outputs = tf.concat(
+                        [a, a3, a5, a7, max_pooling],
+                        axis=-1)
+                    short_path = outputs
+
+            # outputs = self._inception(outputs, name='incepiton1')
+            # outputs += short_path
+
+            with tf.name_scope('flatten'):
+                outputs = tf.nn.max_pool(
+                    outputs,
+                    ksize=[1, outputs.shape[1].value, 1, 1],
+                    strides=strides,
+                    padding='VALID')
+                num_outputs = outputs.shape[-1].value
+                outputs = tf.reshape(
+                    outputs,
+                    [-1, num_outputs])
+            # Add dropout
+            with tf.name_scope("dropout"):
+                self.dropout_keep_prob = tf.placeholder(
+                    tf.float32, name="keep_prob")
+                self.h_drop = tf.nn.dropout(
+                    outputs, self.dropout_keep_prob)
+
+            # Final (unnormalized) scores and predictions
+            with tf.name_scope("output"):
+                W = tf.get_variable(
+                    "W",
+                    shape=[num_outputs, self.config['num_classes']],
+                    initializer=tf.contrib.layers.xavier_initializer())
+                b = tf.Variable(tf.constant(
+                    0.1, shape=[self.config['num_classes']]), name="b")
+                self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+
     def _inception_dense_net(self):
         with tf.name_scope('Inception'):
             # conv 1*100
@@ -309,142 +442,6 @@ class Model(object):
                 outputs,
                 [-1, num_outputs])
             # Add dropout
-            self.h_drop = tf.nn.dropout(
-                outputs, self.dropout_keep_prob)
-
-        # Final (unnormalized) scores and predictions
-        with tf.name_scope("output"):
-            W = tf.get_variable(
-                "W",
-                shape=[num_outputs, self.config['num_classes']],
-                initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.Variable(tf.constant(
-                0.1, shape=[self.config['num_classes']]), name="b")
-            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
-
-    def _dpcnn(self):
-
-        with tf.name_scope('Inception'):
-            # conv 1*100
-            strides = [1, 1, 1, 1]
-            embedding_shape = self.config['embedding_shape']
-            # input channels
-            num_outputs = 1 if not self.config['embedding_type'] ==\
-                'multiple_channels' else 2
-            with tf.name_scope('conv1'):
-                pad_input = self.input_embedded
-                # filter
-                num_in = num_outputs
-                num_filter = 2 ** 7
-                # filter size 1*1
-                filter_shape = [1, embedding_shape[1], num_in, num_filter]
-                # filter weights matrix
-                W_filter = self._weight_variable(filter_shape)
-                b_filter = self._bias_variable([num_filter])
-                conv1 = tf.nn.conv2d(
-                    pad_input,
-                    W_filter,
-                    strides=strides,
-                    padding='VALID')
-                a = tf.nn.relu(tf.nn.bias_add(conv1, b_filter))
-            with tf.name_scope('conv3'):
-                paddings = tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]])
-                pad_input = tf.pad(self.input_embedded, paddings, "CONSTANT")
-                num_in = num_outputs
-                num_filter = 2 ** 7
-                # filter size 1*1
-                filter_shape = [3, embedding_shape[1], num_in, num_filter]
-                # filter weights matrix
-                W_filter = self._weight_variable(filter_shape)
-                b_filter = self._bias_variable([num_filter])
-                conv3 = tf.nn.conv2d(
-                    pad_input,
-                    W_filter,
-                    strides=strides,
-                    padding='VALID')
-                a3 = tf.nn.relu(tf.nn.bias_add(conv3, b_filter))
-            with tf.name_scope('conv5'):
-                paddings = tf.constant([[0, 0], [2, 2], [0, 0], [0, 0]])
-                pad_input = tf.pad(self.input_embedded, paddings, "CONSTANT")
-                num_in = num_outputs
-                num_filter = 2 ** 7
-                # filter size 1*1
-                filter_shape = [5, embedding_shape[1], num_in, num_filter]
-                # filter weights matrix
-                W_filter = self._weight_variable(filter_shape)
-                b_filter = self._bias_variable([num_filter])
-                conv5 = tf.nn.conv2d(
-                    pad_input,
-                    W_filter,
-                    strides=strides,
-                    padding='VALID')
-                a5 = tf.nn.relu(tf.nn.bias_add(conv5, b_filter))
-            with tf.name_scope('conv7'):
-                paddings = tf.constant([[0, 0], [3, 3], [0, 0], [0, 0]])
-                pad_input = tf.pad(self.input_embedded, paddings, "CONSTANT")
-                num_in = num_outputs
-                num_filter = 2 ** 7
-                # filter size 1*1
-                filter_shape = [7, embedding_shape[1], num_in, num_filter]
-                # filter weights matrix
-                W_filter = self._weight_variable(filter_shape)
-                b_filter = self._bias_variable([num_filter])
-                conv7 = tf.nn.conv2d(
-                    pad_input,
-                    W_filter,
-                    strides=strides,
-                    padding='VALID')
-                a7 = tf.nn.relu(tf.nn.bias_add(conv7, b_filter))
-            # max pooling
-            with tf.name_scope('max_pooling'):
-                paddings = tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]])
-                pad_input = tf.pad(self.input_embedded, paddings, "CONSTANT")
-                pad_input = tf.transpose(pad_input, [0, 1, 3, 2])
-                max_pooling = tf.nn.max_pool(
-                    pad_input,
-                    ksize=[1, 3, 1, 1],
-                    strides=strides,
-                    padding='VALID')
-                num_in = embedding_shape[1]
-                num_filter = 2 ** 7
-                # filter size 1*1
-                filter_shape = [1, 1, num_in, num_filter]
-                # filter weights matrix
-                W_filter = self._weight_variable(filter_shape)
-                b_filter = self._bias_variable([num_filter])
-                max_pooling = tf.nn.conv2d(
-                    max_pooling,
-                    W_filter,
-                    strides=strides,
-                    padding='VALID')
-                max_pooling = tf.nn.relu(tf.nn.bias_add(max_pooling, b_filter))
-
-            with tf.name_scope('concat'):
-                outputs = tf.concat(
-                    [a, a3, a5, a7, max_pooling],
-                    axis=-1)
-                short_path = outputs
-
-        outputs = self._inception(outputs, name='incepiton1')
-        outputs += short_path
-        short_path = outputs
-        outputs = self._inception(outputs, name='incepiton2')
-        outputs += short_path
-
-        with tf.name_scope('flatten'):
-            outputs = tf.nn.max_pool(
-                outputs,
-                ksize=[1, outputs.shape[1].value, 1, 1],
-                strides=strides,
-                padding='VALID')
-            num_outputs = outputs.shape[-1].value
-            outputs = tf.reshape(
-                outputs,
-                [-1, num_outputs])
-        # Add dropout
-        with tf.name_scope("dropout"):
-            self.dropout_keep_prob = tf.placeholder(
-                tf.float32, name="keep_prob")
             self.h_drop = tf.nn.dropout(
                 outputs, self.dropout_keep_prob)
 
@@ -1688,6 +1685,12 @@ class Model(object):
                     labels=self.label,
                     k=5,
                     name="recall_at5")
+            self.recall_at_10, self.recall_op_at_10 = \
+                tf.contrib.metrics.streaming_sparse_recall_at_k(
+                    predictions=self.logits,
+                    labels=self.label,
+                    k=10,
+                    name="recall_at_10")
 
         with tf.name_scope("prdiction_top_k"):
             lg = tf.nn.softmax(self.logits)

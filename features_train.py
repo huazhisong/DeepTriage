@@ -67,8 +67,6 @@ tf.flags.DEFINE_float(
     "percentile", 0.5,
     "features selection percentile (default: 0.5)")
 FLAGS = tf.flags.FLAGS
-tf.set_random_seed(1)
-np.random.seed(1)
 
 
 def train_step(cnn, train_summary_writer, sess, x_batch_train, y_batch_train):

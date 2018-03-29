@@ -67,8 +67,6 @@ tf.flags.DEFINE_float(
     "percentile", 1.0,
     "features selection percentile (default: 0.3)")
 FLAGS = tf.flags.FLAGS
-tf.set_random_seed(1)
-np.random.seed(1)
 
 
 def train_step(cnn, train_summary_writer, sess, x_batch_train, y_batch_train):
@@ -157,11 +155,11 @@ def main(_):
                    "text_dense", "text_conv_dense",
                    "text_dp_cnn", "text_inception",
                    "text_inception_dense"]
-    model_types = ["inception_dense_net"]
+    model_types = ["dpcnn"]
     # model_types = ["text_conv_dense"]
-    train_indexes = range(1, 11)
+    train_indexes = range(1, 2)
     # song_no_select_summary_description song_no_select
-    train_data = "mozilla/"
+    train_data = "eclipse/"
     # test_data = 'eclipse/song_no_select_summary_description/'
     data_dir = FLAGS.data_dir + train_data
     checkpointDir = FLAGS.checkpointDir

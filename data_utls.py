@@ -3,6 +3,10 @@ import pandas as pd
 import numpy as np
 import os
 import re
+import json
+import string
+import nltk
+from gensim.models import Word2Vec
 from collections import Counter
 from tensorflow.contrib import learn
 from gensim.models import KeyedVectors
@@ -131,6 +135,207 @@ def features_selection(x_train, y_train, featurs_selection, percent):
 
 TOKENIZER_RE = re.compile(r"[A-Z]{2,}(?![a-z])|[A-Z][a-z]+(?=[A-Z])|[\'\w\-]+",
                           re.UNICODE)
+reg_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|\
+    [$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+
+
+def precessing(item):
+    # mybluemix precessing words
+
+    # 1. Remove \r
+    current_title = item['issue_title'].replace('\r', ' ')
+    current_desc = item['description'].replace('\r', ' ')
+    # 2. Remove URLs
+    current_desc = re.sub(
+        reg_pattern, '', current_desc)
+    # 3. Remove Stack Trace
+    start_loc = current_desc.find("Stack trace:")
+    current_desc = current_desc[:start_loc]
+    # 4. Remove hex code
+    current_desc = re.sub(r'(\w+)0x\w+', '', current_desc)
+    current_title = re.sub(r'(\w+)0x\w+', '', current_title)
+    # 5. Change to lower case
+    current_desc = current_desc.lower()
+    current_title = current_title.lower()
+    # 6. Tokenize
+    current_desc_tokens = nltk.word_tokenize(current_desc)
+    current_title_tokens = nltk.word_tokenize(current_title)
+    # 7. Strip trailing punctuation marks
+    current_desc_filter = [word.strip(string.punctuation)
+                           for word in current_desc_tokens]
+    current_title_filter = [word.strip(string.punctuation)
+                            for word in current_title_tokens]
+    # 8. Join the lists
+    current_data = current_title_filter + current_desc_filter
+    current_data = filter(None, current_data)
+    return current_data
+
+
+def precessing_word2vec(
+        data_dir,
+        data_set,
+        min_word_frequency_word2vec=5,
+        embed_size_word2vec=200,
+        context_window_word2vec=5):
+    # mybluemix word2vec training
+    open_bugs_json = data_dir + data_set + '/deep_data.json'
+    with open(open_bugs_json) as data_file:
+        data = json.load(data_file, strict=False)
+    all_data = []
+    for item in data:
+        current_data = precessing(item)
+        current_data = filter(None, current_data)
+        all_data.append(list(current_data))
+    # Learn the word2vec model and extract vocabulary
+    wordvec_model = Word2Vec(
+        all_data, min_count=min_word_frequency_word2vec,
+        size=embed_size_word2vec, window=context_window_word2vec)
+    wordvec_model.save_word2vec_format(
+        fname=data_dir + data_set + '.bin', binary=True)
+
+
+def preprocessing_json(
+        data_dir, data_set, file,
+        numCV=10, max_sentence_len=50,
+        min_sentence_length=15, batch_size=32,
+        embed_size_word2vec=200):
+    # splits json for numCV
+    closed_bugs_json = data_dir + data_set + \
+        '/train_test_json/' + file + '.json'
+    with open(closed_bugs_json) as data_file:
+        data = json.load(data_file, strict=False)
+    all_data = []
+    all_owner = []
+    for item in data:
+        current_data = precessing(item)
+        all_data.append(list(current_data))
+        all_owner.append(item['owner'])
+    # load any vectors from the word2vec
+    embedding_file = data_dir + data_set + '/' + data_set + '.bin'
+    print("Load word2vec file {}\n".format(embedding_file))
+    word_vectors = KeyedVectors.load_word2vec_format(
+        embedding_file, binary=True)
+    vocabulary = list(word_vectors.vocab.keys())
+    vocabulary.insert(0, 'UNK')
+    totalLength = len(all_data)
+    splitLength = int((totalLength - 1) / (numCV + 1)) + 1
+    for i in range(1, numCV + 1):
+        # Split cross validation set
+        train_data = all_data[:i * splitLength - 1]
+        test_data = all_data[i * splitLength:(i + 1) * splitLength - 1]
+        train_owner = all_owner[:i * splitLength - 1]
+        test_owner = all_owner[i * splitLength:(i + 1) * splitLength - 1]
+
+        # Remove words outside the vocabulary
+        updated_train_data = []
+        updated_train_owner = []
+        final_test_data = []
+        final_test_owner = []
+        for j, item in enumerate(train_data):
+            current_train_filter = [
+                word for word in item if word in vocabulary]
+            if len(current_train_filter) >= min_sentence_length:
+                updated_train_data.append(current_train_filter)
+                updated_train_owner.append(train_owner[j])
+
+        for j, item in enumerate(test_data):
+            current_test_filter = [word for word in item if word in vocabulary]
+            if len(current_test_filter) >= min_sentence_length:
+                final_test_data.append(current_test_filter)
+                final_test_owner.append(test_owner[j])
+
+        # Remove data from test set that is not there in train set
+        train_owner_unique = set(updated_train_owner)
+        test_owner_unique = set(final_test_owner)
+        unwanted_owner = list(test_owner_unique - train_owner_unique)
+        updated_test_data = []
+        updated_test_owner = []
+        for j in range(len(final_test_owner)):
+            if final_test_owner[j] not in unwanted_owner:
+                updated_test_data.append(final_test_data[j])
+                updated_test_owner.append(final_test_owner[j])
+
+        # Create train and test data for deep learning + softmax
+        X_train = np.empty(
+            shape=[len(updated_train_data), max_sentence_len],
+            dtype='float32')
+        Y_train = updated_train_owner
+        for j, curr_row in enumerate(updated_train_data):
+            sequence_cnt = 0
+            for item in curr_row:
+                if item in vocabulary:
+                    X_train[j, sequence_cnt] = vocabulary.index(item)
+                    sequence_cnt = sequence_cnt + 1
+                    if sequence_cnt == max_sentence_len - 1:
+                        break
+            for k in range(sequence_cnt, max_sentence_len):
+                X_train[j, k] = np.zeros((1,))
+
+        X_test = np.empty(
+            shape=[len(updated_test_data), max_sentence_len],
+            dtype='float32')
+        Y_test = updated_test_owner
+        for j, curr_row in enumerate(updated_test_data):
+            sequence_cnt = 0
+            for item in curr_row:
+                if item in vocabulary:
+                    X_test[j, sequence_cnt] = vocabulary.index(item)
+                    sequence_cnt = sequence_cnt + 1
+                    if sequence_cnt == max_sentence_len - 1:
+                        break
+            for k in range(sequence_cnt, max_sentence_len):
+                X_test[j, k] = np.zeros((1,))
+        save_dir = data_dir + data_set + '/train_test_json/' + file + '/'
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+        print(len(X_train))
+        saved_path = save_dir + str(i) + '_x_train.csv'
+        X_train = pd.DataFrame(X_train)
+        X_train.to_csv(saved_path, index=False, header=True)
+        saved_path = save_dir + str(i) + '_y_train.csv'
+        Y_train = pd.DataFrame(Y_train)
+        Y_train.to_csv(saved_path, index=False, header=True)
+        saved_path = save_dir + str(i) + '_x_test.csv'
+        X_test = pd.DataFrame(X_test)
+        X_test.to_csv(saved_path, index=False, header=True)
+        saved_path = save_dir + str(i) + '_y_test.csv'
+        Y_test = pd.DataFrame(Y_test)
+        Y_test.to_csv(saved_path, index=False, header=True)
+
+
+def load_train_test(data_dir, data_set, file, index, class_file,
+                    embed_size_word2vec=200, encode='utf8'):
+    # mybluemix load train test by index
+    x_train_file = data_dir + data_set + '/train_test_json/' + \
+        file + '/' + str(index) + '_x_train.csv'
+    x_train = pd.read_csv(x_train_file, encoding=encode)
+    y_train_file = data_dir + data_set + '/train_test_json/' + \
+        file + '/' + str(index) + '_y_train.csv'
+    y_train = pd.read_csv(y_train_file, encoding=encode)
+    x_test_file = data_dir + data_set + '/train_test_json/' + \
+        file + '/' + str(index) + '_x_test.csv'
+    x_test = pd.read_csv(x_test_file, encoding=encode)
+    y_test_file = data_dir + data_set + '/train_test_json/' + \
+        file + '/' + str(index) + '_y_test.csv'
+    y_test = pd.read_csv(y_test_file, encoding=encode)
+    # load any vectors from the word2vec
+    embedding_file = data_dir + data_set + '/' + data_set + '.bin'
+    print("Load word2vec file {}\n".format(embedding_file))
+    word_vectors = KeyedVectors.load_word2vec_format(
+        embedding_file, binary=True)
+    vocabulary = list(word_vectors.vocab.keys())
+    vocabulary.insert(0, 'UNK')
+    # initial matrix with random uniform
+    embedding = np.random.uniform(
+        -0.25,
+        0.25,
+        (len(word_vectors.vocab), embed_size_word2vec))
+    for idx, word in enumerate(word_vectors.vocab):
+        embedding[idx] = word_vectors[word]
+    lb = LabelBinarizer()
+    lb.fit(y_train)
+    np.savetxt(class_file, lb.classes_, fmt="%s")
+    return x_train.values, y_train.values, x_test.values, y_test.values, embedding, lb
 
 
 def tokenizer(iterator):
@@ -272,7 +477,6 @@ def batch_generator(
     data = np.array(list(zip(data, labels_code)))
     data_size = len(data)
     num_batches_per_epoch = int((data_size - 1) / batch_size) + 1
-
     for epoch in range(num_epochs):
         # Shuffle the data at each epoch
         if shuffle:
@@ -304,8 +508,8 @@ def batch_generator(
 
 
 if __name__ == '__main__':
-    print(os.listdir('../../data/data_by_ocean/eclipse/song_no_select'))
-    # data_dir = '../../data/data_by_ocean/eclipse/song_no_select/'
-    # data_files = [data_dir + str(i) + '.csv' for i in range(11)]
-    # x_train, y_train, x_test,\
-    #     y_test, vocabulary_processor = load_files(data_files)
+    preprocessing_json('../data/bug_triage/', 'chrome', 'classifier_data_101', numCV=3)
+    # import pdb
+    # pdb.set_trace()
+    # a, b, c, d = load_train_test('../data/bug_triage/', 'chrome',
+    #                              'classifier_data_101', 7)
