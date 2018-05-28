@@ -40,7 +40,137 @@ class Model(object):
         with tf.name_scope('Summaries'):
             self._summary()
 
+    def _inception_dense_net1_transpose(self):
+        # 将通道位置放到最后一维，进行一维的inception式卷积
+        with tf.name_scope('Inception'):
+            # conv 1*100
+            strides = [1, 1, 1, 1]
+            embedding_shape = self.config['embedding_shape']
+            # input channels
+            num_outputs = embedding_shape[1]
+            input_embedded = tf.transpose(self.input_embedded, [0, 1, 3, 2])
+            with tf.name_scope('conv1'):
+                pad_input = input_embedded
+                # filter
+                num_in = num_outputs
+                num_filter = 2 ** 7
+                # filter size 1*1
+                filter_shape = [1, 1, num_in, num_filter]
+                # filter weights matrix
+                W_filter = self._weight_variable(filter_shape)
+                b_filter = self._bias_variable([num_filter])
+                a = tf.nn.conv2d(
+                    pad_input,
+                    W_filter,
+                    strides=strides,
+                    padding='VALID')
+                a += b_filter
+            with tf.name_scope('conv3'):
+                paddings = tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]])
+                pad_input = tf.pad(input_embedded, paddings, "CONSTANT")
+                num_in = num_outputs
+                num_filter = 2 ** 7
+                # filter size 1*1
+                filter_shape = [3, 1, num_in, num_filter]
+                # filter weights matrix
+                W_filter = self._weight_variable(filter_shape)
+                b_filter = self._bias_variable([num_filter])
+                a3 = tf.nn.conv2d(
+                    pad_input,
+                    W_filter,
+                    strides=strides,
+                    padding='VALID')
+                a3 += b_filter
+            with tf.name_scope('conv5'):
+                paddings = tf.constant([[0, 0], [2, 2], [0, 0], [0, 0]])
+                pad_input = tf.pad(input_embedded, paddings, "CONSTANT")
+                num_in = num_outputs
+                num_filter = 2 ** 7
+                # filter size 1*1
+                filter_shape = [5, 1, num_in, num_filter]
+                # filter weights matrix
+                W_filter = self._weight_variable(filter_shape)
+                b_filter = self._bias_variable([num_filter])
+                a5 = tf.nn.conv2d(
+                    pad_input,
+                    W_filter,
+                    strides=strides,
+                    padding='VALID')
+                a5 += b_filter
+            with tf.name_scope('conv7'):
+                paddings = tf.constant([[0, 0], [3, 3], [0, 0], [0, 0]])
+                pad_input = tf.pad(input_embedded, paddings, "CONSTANT")
+                num_in = num_outputs
+                num_filter = 2 ** 7
+                # filter size 1*1
+                filter_shape = [7, 1, num_in, num_filter]
+                # filter weights matrix
+                W_filter = self._weight_variable(filter_shape)
+                b_filter = self._bias_variable([num_filter])
+                a7 = tf.nn.conv2d(
+                    pad_input,
+                    W_filter,
+                    strides=strides,
+                    padding='VALID')
+                a7 += b_filter
+            # max pooling
+            with tf.name_scope('max_pooling'):
+                paddings = tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]])
+                pad_input = tf.pad(input_embedded, paddings, "CONSTANT")
+                max_pooling = tf.nn.max_pool(
+                    pad_input,
+                    ksize=[1, 3, 1, 1],
+                    strides=strides,
+                    padding='VALID')
+                num_in = num_outputs
+                num_filter = 2 ** 7
+                # filter size 1*1
+                filter_shape = [1, 1, num_in, num_filter]
+                # filter weights matrix
+                W_filter = self._weight_variable(filter_shape)
+                b_filter = self._bias_variable([num_filter])
+                max_pooling = tf.nn.conv2d(
+                    max_pooling,
+                    W_filter,
+                    strides=strides,
+                    padding='VALID')
+                max_pooling += b_filter
+            with tf.name_scope('concat'):
+                outputs = tf.concat(
+                    [a, a3, a5, a7, max_pooling],
+                    axis=-1)
+
+        with tf.name_scope("dropout"):
+            self.dropout_keep_prob = tf.placeholder(
+                tf.float32, name="keep_prob")
+
+        # 先拼接后最大池化
+        with tf.name_scope('flatten'):
+            outputs = tf.nn.max_pool(
+                outputs,
+                ksize=[1, outputs.shape[1].value, 1, 1],
+                strides=strides,
+                padding='VALID')
+            num_outputs = outputs.shape[-1].value
+            outputs = tf.reshape(
+                outputs,
+                [-1, num_outputs])
+            # Add dropout
+            self.h_drop = tf.nn.dropout(
+                outputs, self.dropout_keep_prob)
+
+        # Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                "W",
+                shape=[num_outputs, self.config['num_classes']],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(
+                0.1, shape=[self.config['num_classes']]), name="b")
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+
     def _dpcnn(self):
+            # 使用Tong Zhang的Deep Pyramid卷积模型
 
             with tf.name_scope('Inception'):
                 # conv 1*100
@@ -67,7 +197,8 @@ class Model(object):
                     a = tf.nn.relu(tf.nn.bias_add(conv1, b_filter))
                 with tf.name_scope('conv3'):
                     paddings = tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]])
-                    pad_input = tf.pad(self.input_embedded, paddings, "CONSTANT")
+                    pad_input = tf.pad(
+                        self.input_embedded, paddings, "CONSTANT")
                     num_in = num_outputs
                     num_filter = 2 ** 7
                     # filter size 1*1
@@ -83,7 +214,8 @@ class Model(object):
                     a3 = tf.nn.relu(tf.nn.bias_add(conv3, b_filter))
                 with tf.name_scope('conv5'):
                     paddings = tf.constant([[0, 0], [2, 2], [0, 0], [0, 0]])
-                    pad_input = tf.pad(self.input_embedded, paddings, "CONSTANT")
+                    pad_input = tf.pad(
+                        self.input_embedded, paddings, "CONSTANT")
                     num_in = num_outputs
                     num_filter = 2 ** 7
                     # filter size 1*1
@@ -99,7 +231,8 @@ class Model(object):
                     a5 = tf.nn.relu(tf.nn.bias_add(conv5, b_filter))
                 with tf.name_scope('conv7'):
                     paddings = tf.constant([[0, 0], [3, 3], [0, 0], [0, 0]])
-                    pad_input = tf.pad(self.input_embedded, paddings, "CONSTANT")
+                    pad_input = tf.pad(
+                        self.input_embedded, paddings, "CONSTANT")
                     num_in = num_outputs
                     num_filter = 2 ** 7
                     # filter size 1*1
@@ -116,7 +249,8 @@ class Model(object):
                 # max pooling
                 with tf.name_scope('max_pooling'):
                     paddings = tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]])
-                    pad_input = tf.pad(self.input_embedded, paddings, "CONSTANT")
+                    pad_input = tf.pad(
+                        self.input_embedded, paddings, "CONSTANT")
                     pad_input = tf.transpose(pad_input, [0, 1, 3, 2])
                     max_pooling = tf.nn.max_pool(
                         pad_input,
@@ -135,14 +269,15 @@ class Model(object):
                         W_filter,
                         strides=strides,
                         padding='VALID')
-                    max_pooling = tf.nn.relu(tf.nn.bias_add(max_pooling, b_filter))
+                    max_pooling = tf.nn.relu(
+                        tf.nn.bias_add(max_pooling, b_filter))
 
                 with tf.name_scope('concat'):
                     outputs = tf.concat(
                         [a, a3, a5, a7, max_pooling],
                         axis=-1)
-                    short_path = outputs
-
+                    # short_path = outputs
+            # 拼接多个inception block
             # outputs = self._inception(outputs, name='incepiton1')
             # outputs += short_path
 
@@ -174,6 +309,7 @@ class Model(object):
                 self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
 
     def _inception_dense_net(self):
+        # 使用Dense nete 模型
         with tf.name_scope('Inception'):
             # conv 1*100
             strides = [1, 1, 1, 1]
@@ -316,6 +452,7 @@ class Model(object):
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
 
     def _inception_dense_net1(self):
+        # 仅使用 inception block结构
         with tf.name_scope('Inception'):
             # conv 1*100
             strides = [1, 1, 1, 1]
@@ -455,220 +592,6 @@ class Model(object):
                 0.1, shape=[self.config['num_classes']]), name="b")
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
 
-    def _inception(self, outputs, name,
-                   num_filter=2**7,
-                   activate_function=tf.nn.relu):
-        with tf.name_scope(name):
-            # conv 1*100
-            strides = [1, 1, 1, 1]
-            num_outputs = outputs.shape[-1].value
-            with tf.name_scope('conv1'):
-                pad_input = outputs
-                # filter
-                num_in = num_outputs
-                # filter size 1*1
-                filter_shape = [1, 1, num_in, num_filter]
-                # filter weights matrix
-                W_filter = self._weight_variable(filter_shape)
-                b_filter = self._bias_variable([num_filter])
-                conv1 = tf.nn.conv2d(
-                    pad_input,
-                    W_filter,
-                    strides=strides,
-                    padding='VALID')
-                if activate_function:
-                    a = tf.nn.relu(tf.nn.bias_add(conv1, b_filter))
-                else:
-                    a = conv1 + b_filter
-            with tf.name_scope('conv3'):
-                paddings = tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]])
-                pad_input = tf.pad(outputs, paddings, "CONSTANT")
-                num_in = num_outputs
-                # filter size 1*1
-                filter_shape = [3, 1, num_in, num_filter]
-                # filter weights matrix
-                W_filter = self._weight_variable(filter_shape)
-                b_filter = self._bias_variable([num_filter])
-                conv3 = tf.nn.conv2d(
-                    pad_input,
-                    W_filter,
-                    strides=strides,
-                    padding='VALID')
-                if activate_function:
-                    a3 = tf.nn.relu(tf.nn.bias_add(conv3, b_filter))
-                else:
-                    a3 = conv3 + b_filter
-            with tf.name_scope('conv5'):
-                paddings = tf.constant([[0, 0], [2, 2], [0, 0], [0, 0]])
-                pad_input = tf.pad(outputs, paddings, "CONSTANT")
-                num_in = num_outputs
-                # filter size 1*1
-                filter_shape = [5, 1, num_in, num_filter]
-                # filter weights matrix
-                W_filter = self._weight_variable(filter_shape)
-                b_filter = self._bias_variable([num_filter])
-                conv5 = tf.nn.conv2d(
-                    pad_input,
-                    W_filter,
-                    strides=strides,
-                    padding='VALID')
-                if activate_function:
-                    a5 = tf.nn.relu(tf.nn.bias_add(conv5, b_filter))
-                else:
-                    a5 = conv5 + b_filter
-            with tf.name_scope('conv7'):
-                paddings = tf.constant([[0, 0], [3, 3], [0, 0], [0, 0]])
-                pad_input = tf.pad(outputs, paddings, "CONSTANT")
-                num_in = num_outputs
-                # filter size 1*1
-                filter_shape = [7, 1, num_in, num_filter]
-                # filter weights matrix
-                W_filter = self._weight_variable(filter_shape)
-                b_filter = self._bias_variable([num_filter])
-                conv7 = tf.nn.conv2d(
-                    pad_input,
-                    W_filter,
-                    strides=strides,
-                    padding='VALID')
-                if activate_function:
-                    a7 = tf.nn.relu(tf.nn.bias_add(conv7, b_filter))
-                else:
-                    a7 = conv7 + b_filter
-            # max pooling
-            with tf.name_scope('max_pooling'):
-                paddings = tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]])
-                pad_input = tf.pad(outputs, paddings, "CONSTANT")
-                max_pooling = tf.nn.max_pool(
-                    pad_input,
-                    ksize=[1, 3, 1, 1],
-                    strides=strides,
-                    padding='VALID')
-                num_in = num_outputs
-                # filter size 1*1
-                filter_shape = [1, 1, num_in, num_filter]
-                # filter weights matrix
-                W_filter = self._weight_variable(filter_shape)
-                b_filter = self._bias_variable([num_filter])
-                max_pooling = tf.nn.conv2d(
-                    max_pooling,
-                    W_filter,
-                    strides=strides,
-                    padding='VALID')
-                if activate_function:
-                    max_pooling = tf.nn.relu(
-                        tf.nn.bias_add(max_pooling, b_filter))
-                else:
-                    max_pooling += b_filter
-
-            with tf.name_scope('concat'):
-                outputs = tf.concat(
-                    [a, a3, a5, a7, max_pooling],
-                    axis=-1)
-            return outputs
-
-    def _down_sampling(self, outputs, name):
-        with tf.name_scope(name):
-            outputs = tf.nn.max_pool(
-                outputs,
-                ksize=[1, 3, 1, 1],
-                strides=[1, 2, 1, 1],
-                padding='VALID')
-        return outputs
-
-    def _multi_layers_cnn(self):
-        """
-
-        三层CNN叠加
-        """
-        filter_size = self.config['filter_sizes'][-1]
-        filter_shape = [filter_size, self.config['embedding_shape']
-                        [1], 1, self.config['num_filters'] * 3]
-        W = tf.Variable(tf.truncated_normal(
-            filter_shape, stddev=0.1), name="W")
-        b = tf.Variable(tf.constant(
-            0.1, shape=[self.config['num_filters'] * 3]), name="b")
-        conv = tf.nn.conv2d(
-            self.input_embedded,
-            W,
-            strides=[1, 1, 1, 1],
-            padding="VALID",
-            name="conv")
-        # Apply nonlinearity
-        h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
-        filter_shape = [filter_size, 1,
-                        self.config['num_filters'] * 3,
-                        self.config['num_filters'] * 6]
-        W = tf.Variable(tf.truncated_normal(
-            filter_shape, stddev=0.1), name="W")
-        b = tf.Variable(tf.constant(
-            0.1, shape=[self.config['num_filters'] * 6]), name="b")
-        conv = tf.nn.conv2d(
-            conv,
-            W,
-            strides=[1, 1, 1, 1],
-            padding="VALID",
-            name="conv")
-        # Apply nonlinearity
-        h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
-        filter_shape = [filter_size, 1,
-                        self.config['num_filters'] * 6,
-                        self.config['num_filters'] * 9]
-        W = tf.Variable(tf.truncated_normal(
-            filter_shape, stddev=0.1), name="W")
-        b = tf.Variable(tf.constant(
-            0.1, shape=[self.config['num_filters'] * 9]), name="b")
-        conv = tf.nn.conv2d(
-            conv,
-            W,
-            strides=[1, 1, 1, 1],
-            padding="VALID",
-            name="conv")
-        # Apply nonlinearity
-        h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
-        filter_shape = [h.shape[1].value, 1,
-                        self.config['num_filters'] * 9,
-                        self.config['num_filters'] * 9]
-        W = tf.Variable(tf.truncated_normal(
-            filter_shape, stddev=0.1), name="W")
-        b = tf.Variable(tf.constant(
-            0.1, shape=[self.config['num_filters'] * 9]), name="b")
-        conv = tf.nn.conv2d(
-            conv,
-            W,
-            strides=[1, 1, 1, 1],
-            padding="VALID",
-            name="conv")
-        # Apply nonlinearity
-        h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
-        # # Maxpooling over the outputs
-        # pooled = tf.nn.max_pool(
-        #     h,
-        #     ksize=[1, h.get_shape().as_list()[1], 1, 1],
-        #     strides=[1, 1, 1, 1],
-        #     padding='VALID',
-        #     name="pool")
-        # self.h_pool = tf.reshape(pooled, [-1, self.config['num_filters'] * 9])
-        h = tf.squeeze(h)
-        # Add dropout
-        with tf.name_scope("dropout"):
-            self.dropout_keep_prob = tf.placeholder(
-                tf.float32, name="dropout_keep_prob")
-            self.h_drop = tf.nn.dropout(
-                h, self.dropout_keep_prob)
-
-        # Final (unnormalized) scores and predictions
-        with tf.name_scope("output"):
-            W = tf.get_variable(
-                "W",
-                shape=[self.config['num_filters'] * 9,
-                       self.config['num_classes']],
-                initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.Variable(tf.constant(
-                0.1, shape=[self.config['num_classes']]), name="b")
-            self.l2_loss += tf.nn.l2_loss(W)
-            self.l2_loss += tf.nn.l2_loss(b)
-            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
-
     def _text_inception_dense(self):
         # input channels
         num_in = 1 if not self.config['embedding_type'] ==\
@@ -800,44 +723,120 @@ class Model(object):
                 0.1, shape=[self.config['num_classes']]), name="b")
             self.logits = tf.nn.xw_plus_b(current, W, b, name="scores")
 
-    def _transition(self, current):
-        with tf.name_scope('transition'):
-            # filter
-            num_in = num_filter = current.shape[-1].value
-            # filter size 1*1
-            filter_shape = [3, 1, num_in, num_filter]
-            # filter weights matrix
-            W_filter = self._weight_variable(filter_shape)
-            b_filter = self._bias_variable([num_filter])
-            conv1 = tf.nn.conv2d(
-                current,
-                W_filter,
-                strides=[1, 2, 1, 1],
-                padding='VALID')
-            return tf.nn.relu(tf.nn.bias_add(conv1, b_filter))
+    def _inception(self, outputs, name,
+                   num_filter=2**7,
+                   activate_function=tf.nn.relu):
+        # 辅助函数 Inception block函数
+        with tf.name_scope(name):
+            # conv 1*100
+            strides = [1, 1, 1, 1]
+            num_outputs = outputs.shape[-1].value
+            with tf.name_scope('conv1'):
+                pad_input = outputs
+                # filter
+                num_in = num_outputs
+                # filter size 1*1
+                filter_shape = [1, 1, num_in, num_filter]
+                # filter weights matrix
+                W_filter = self._weight_variable(filter_shape)
+                b_filter = self._bias_variable([num_filter])
+                conv1 = tf.nn.conv2d(
+                    pad_input,
+                    W_filter,
+                    strides=strides,
+                    padding='VALID')
+                if activate_function:
+                    a = tf.nn.relu(tf.nn.bias_add(conv1, b_filter))
+                else:
+                    a = conv1 + b_filter
+            with tf.name_scope('conv3'):
+                paddings = tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]])
+                pad_input = tf.pad(outputs, paddings, "CONSTANT")
+                num_in = num_outputs
+                # filter size 1*1
+                filter_shape = [3, 1, num_in, num_filter]
+                # filter weights matrix
+                W_filter = self._weight_variable(filter_shape)
+                b_filter = self._bias_variable([num_filter])
+                conv3 = tf.nn.conv2d(
+                    pad_input,
+                    W_filter,
+                    strides=strides,
+                    padding='VALID')
+                if activate_function:
+                    a3 = tf.nn.relu(tf.nn.bias_add(conv3, b_filter))
+                else:
+                    a3 = conv3 + b_filter
+            with tf.name_scope('conv5'):
+                paddings = tf.constant([[0, 0], [2, 2], [0, 0], [0, 0]])
+                pad_input = tf.pad(outputs, paddings, "CONSTANT")
+                num_in = num_outputs
+                # filter size 1*1
+                filter_shape = [5, 1, num_in, num_filter]
+                # filter weights matrix
+                W_filter = self._weight_variable(filter_shape)
+                b_filter = self._bias_variable([num_filter])
+                conv5 = tf.nn.conv2d(
+                    pad_input,
+                    W_filter,
+                    strides=strides,
+                    padding='VALID')
+                if activate_function:
+                    a5 = tf.nn.relu(tf.nn.bias_add(conv5, b_filter))
+                else:
+                    a5 = conv5 + b_filter
+            with tf.name_scope('conv7'):
+                paddings = tf.constant([[0, 0], [3, 3], [0, 0], [0, 0]])
+                pad_input = tf.pad(outputs, paddings, "CONSTANT")
+                num_in = num_outputs
+                # filter size 1*1
+                filter_shape = [7, 1, num_in, num_filter]
+                # filter weights matrix
+                W_filter = self._weight_variable(filter_shape)
+                b_filter = self._bias_variable([num_filter])
+                conv7 = tf.nn.conv2d(
+                    pad_input,
+                    W_filter,
+                    strides=strides,
+                    padding='VALID')
+                if activate_function:
+                    a7 = tf.nn.relu(tf.nn.bias_add(conv7, b_filter))
+                else:
+                    a7 = conv7 + b_filter
+            # max pooling
+            with tf.name_scope('max_pooling'):
+                paddings = tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]])
+                pad_input = tf.pad(outputs, paddings, "CONSTANT")
+                max_pooling = tf.nn.max_pool(
+                    pad_input,
+                    ksize=[1, 3, 1, 1],
+                    strides=strides,
+                    padding='VALID')
+                num_in = num_outputs
+                # filter size 1*1
+                filter_shape = [1, 1, num_in, num_filter]
+                # filter weights matrix
+                W_filter = self._weight_variable(filter_shape)
+                b_filter = self._bias_variable([num_filter])
+                max_pooling = tf.nn.conv2d(
+                    max_pooling,
+                    W_filter,
+                    strides=strides,
+                    padding='VALID')
+                if activate_function:
+                    max_pooling = tf.nn.relu(
+                        tf.nn.bias_add(max_pooling, b_filter))
+                else:
+                    max_pooling += b_filter
 
-    def _block_inception(self, input, layers,
-                         growth, is_training,
-                         keep_prob):
-        current = input
-        for idx in range(layers):
-            with tf.name_scope("layer" + str(idx)):
-                tmp = self._batch_activ_inception(
-                    current, growth, is_training,
-                    keep_prob)
-                current = tf.concat([current, tmp], axis=-1)
-        return current
-
-    def _batch_activ_inception(self, current, out_features,
-                               is_training, keep_prob):
-        current = tf.nn.relu(current)
-        current = self._inception(
-            current, name='inception',
-            num_filter=out_features, activate_function=None)
-        current = tf.nn.dropout(current, keep_prob)
-        return current
+            with tf.name_scope('concat'):
+                outputs = tf.concat(
+                    [a, a3, a5, a7, max_pooling],
+                    axis=-1)
+            return outputs
 
     def _text_inception(self):
+        # inception module的尝试版
         # input channels
         num_in = 1 if not self.config['embedding_type'] ==\
             'multiple_channels' else 2
@@ -955,137 +954,60 @@ class Model(object):
                 0.1, shape=[self.config['num_classes']]), name="b")
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
 
-    def _textcnn(self):
-        # Create a convolution + maxpool layer for each filter size
-        pooled_outputs = []
-        num_in = 1 if not self.config['embedding_type'] ==\
-            'multiple_channels' else 2
-        # normed_input = self._batch_norm_layer(
-        #     self.input_embedded, self.is_training, 'bn_embedding')
-        for i, filter_size in enumerate(self.config['filter_sizes']):
-            with tf.name_scope("conv-maxpool-%s" % filter_size):
-                # Convolution Layer
-                filter_shape = [filter_size,
-                                self.config['embedding_shape'][1],
-                                num_in, self.config['num_filters']]
-                W = tf.Variable(tf.truncated_normal(
-                    filter_shape, stddev=0.1), name="W")
-                b = tf.Variable(tf.constant(
-                    0.1, shape=[self.config['num_filters']]), name="b")
-                conv = tf.nn.conv2d(
-                    self.input_embedded,
-                    W,
-                    strides=[1, 1, 1, 1],
-                    padding="VALID",
-                    name="conv")
-                # Apply nonlinearity
-                h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
-                # Maxpooling over the outputs
-                pooled = tf.nn.max_pool(
-                    h,
-                    ksize=[1, self.config['max_sent_length'] -
-                           filter_size + 1, 1, 1],
-                    strides=[1, 1, 1, 1],
-                    padding='VALID',
-                    name="pool")
-                pooled_outputs.append(pooled)
-
-        # Combine all the pooled features
-        num_filters_total = self.config['num_filters'] *\
-            len(self.config['filter_sizes'])
-        self.h_pool = tf.concat(pooled_outputs, 3)
-        self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
-
-        # Add dropout
-        with tf.name_scope("dropout"):
-            self.dropout_keep_prob = tf.placeholder(
-                tf.float32, name="dropout_keep_prob")
-            self.h_drop = tf.nn.dropout(
-                self.h_pool_flat, self.dropout_keep_prob)
-
-        # Final (unnormalized) scores and predictions
-        with tf.name_scope("output"):
-            W = tf.get_variable(
-                "W",
-                shape=[num_filters_total, self.config['num_classes']],
-                initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.Variable(tf.constant(
-                0.1, shape=[self.config['num_classes']]), name="b")
-            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
-
-    def _text_bilstm(self):
-        """
-
-        经典BiLSTM
-        """
-        n_hidden = self.config['n_hidden']
-        num_classes = self.config['num_classes']
-        batch_size = self.config['batch_size']
-        with tf.name_scope("LSTM"):
-            self.dropout_keep_prob = tf.placeholder(
-                tf.float32, name="dropout_keep_prob")
-            input_x = tf.squeeze(self.input_embedded, -1)
-            lstm_fw = tf.contrib.rnn.BasicLSTMCell(n_hidden)
-            lstm_bw = tf.contrib.rnn.BasicLSTMCell(n_hidden)
-            lstm_fw_init = lstm_fw.zero_state(batch_size, tf.float32)
-            lstm_bw_init = lstm_bw.zero_state(batch_size, tf.float32)
-            lstm_fw_drop = tf.contrib.rnn.DropoutWrapper(
-                lstm_fw, output_keep_prob=self.dropout_keep_prob)
-            lstm_bw_drop = tf.contrib.rnn.DropoutWrapper(
-                lstm_bw, output_keep_prob=self.dropout_keep_prob)
-            outputs, _ = tf.nn.bidirectional_dynamic_rnn(
-                lstm_fw_drop, lstm_bw_drop,
-                input_x, dtype=tf.float32,
-                initial_state_fw=lstm_fw_init,
-                initial_state_bw=lstm_bw_init)
-            outputs = tf.concat(outputs, axis=-1)
-            # lstm_output = self._attention(outputs)
-            lstm_output = tf.squeeze(outputs[:, -1, :])
-            # lstm_max = tf.squeeze(tf.reduce_max(outputs, axis=-2))
-            # lstm_output = tf.concat([lstm_last, lstm_max], axis=-1)
-
-        # Final (unnormalized) scores and predictions
-        with tf.name_scope("output"):
-            n_in = lstm_output.shape[-1].value
-            W = tf.get_variable(
-                "W",
-                shape=[n_in, num_classes],
-                initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
-            self.logits = tf.nn.xw_plus_b(lstm_output, W, b, name="scores")
-
-    def _attention(self, hidden_state):
-        """
-
-        Hierarchical Attention Network
-        """
-        n_hidden = hidden_state.shape[-1].value
-        len_sent = hidden_state.shape[-2].value
-        hidden_state_flat = tf.reshape(hidden_state, [-1, n_hidden])
-
-        W = self._weight_variable([n_hidden, n_hidden])
-        b = self._bias_variable([n_hidden])
-        hidden_represention = tf.nn.tanh(tf.matmul(hidden_state_flat, W) + b)
-        hidden_represention = tf.reshape(
-            hidden_represention, [-1, len_sent, n_hidden])
-
-        context_vector = self._weight_variable([n_hidden])
-        hidden_state_context_similiarity = tf.multiply(
-            hidden_represention, context_vector)
-        attention_logits = tf.reduce_sum(
-            hidden_state_context_similiarity, axis=-1)
-        attention_logits_max = tf.reduce_max(
-            attention_logits, axis=-1, keep_dims=True)
-        p_attention = tf.nn.softmax(attention_logits - attention_logits_max)
-        p_attention_expanded = tf.expand_dims(p_attention, axis=-1)
-
-        sentence_representation = tf.multiply(
-            p_attention_expanded, hidden_state)
-        sentence_representation = tf.reduce_sum(
-            sentence_representation, axis=-2)
-        return sentence_representation
+    def _embedding(self):
+        self.input_x = tf.placeholder(
+            dtype=tf.int32,
+            shape=[None, self.config['max_sent_length']],
+            name='input_x')
+        with tf.device('/cpu:0'):
+            if not self.config['embedding_type'] == 'multiple_channels':
+                if self.config['embedding_type'] == 'static':
+                    self.embedding = tf.get_variable(
+                        "embedding",
+                        shape=self.config['embedding_shape'],
+                        initializer=tf.contrib.layers.xavier_initializer(),
+                        dtype=tf.float32,
+                        trainable=False)
+                elif self.config['embedding_type'] == 'rand':
+                    self.embedding = tf.get_variable(
+                        "embedding",
+                        shape=self.config['embedding_shape'],
+                        initializer=tf.contrib.layers.xavier_initializer(),
+                        dtype=tf.float32,
+                        trainable=True)
+                elif self.config['embedding_type'] == 'non_static':
+                    self.embedding = tf.get_variable(
+                        "embedding",
+                        shape=self.config['embedding_shape'],
+                        initializer=tf.contrib.layers.xavier_initializer(),
+                        dtype=tf.float32,
+                        trainable=True)
+                embedded = tf.nn.embedding_lookup(self.embedding, self.input_x)
+                self.input_embedded = tf.expand_dims(embedded, -1)
+            else:
+                self.embedding = tf.get_variable(
+                    "embedding",
+                    shape=self.config['embedding_shape'],
+                    initializer=tf.contrib.layers.xavier_initializer(),
+                    dtype=tf.float32,
+                    trainable=False)
+                self.another_embedding = tf.get_variable(
+                    "another_embedding",
+                    shape=self.config['embedding_shape'],
+                    initializer=tf.contrib.layers.xavier_initializer(),
+                    dtype=tf.float32,
+                    trainable=True)
+                embedded = tf.nn.embedding_lookup(self.embedding, self.input_x)
+                expaned_embedded = tf.expand_dims(embedded, -1)
+                another_embedded = tf.nn.embedding_lookup(
+                    self.another_embedding, self.input_x)
+                another_expaned_embedded = tf.expand_dims(another_embedded, -1)
+                self.input_embedded = tf.concat(
+                    [expaned_embedded, another_expaned_embedded], 3)
 
     def _text_dense(self):
+        # block_pooling = bn+relu+fc
+
         # Create a convolution + maxpool layer for each filter size
         pooled_outputs = []
         num_in = 1 if not self.config['embedding_type'] ==\
@@ -1149,93 +1071,11 @@ class Model(object):
             self.logits = tf.nn.xw_plus_b(
                 current, W, b, name="scores")
 
-    def _textlstm(self):
-        """
-
-
-        经典BasicLSTM
-        """
-        n_hidden = self.config['n_hidden']
-        num_classes = self.config['num_classes']
-        batch_size = self.config['batch_size']
-        with tf.name_scope("LSTM"):
-            self.dropout_keep_prob = tf.placeholder(
-                tf.float32, name="dropout_keep_prob")
-            input_x = tf.squeeze(self.input_embedded, -1)
-            lstm = tf.contrib.rnn.BasicLSTMCell(n_hidden)
-            lstm_init = lstm.zero_state(batch_size, tf.float32)
-            lstm_drop = tf.contrib.rnn.DropoutWrapper(
-                lstm, output_keep_prob=self.dropout_keep_prob)
-            outputs, _ = tf.nn.dynamic_rnn(
-                lstm_drop, input_x, dtype=tf.float32,
-                initial_state=lstm_init)
-            # lstm_output = tf.squeeze(outputs[:, -1, :])
-            lstm_output = tf.squeeze(tf.reduce_max(outputs, axis=-1))
-            # lstm_output = tf.concat([lstm_last, lstm_max], axis=-1)
-
-        # Final (unnormalized) scores and predictions
-        with tf.name_scope("output"):
-            n_in = lstm_output.shape[-1].value
-            W = tf.get_variable(
-                "W",
-                shape=[n_in, num_classes],
-                initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
-            self.logits = tf.nn.xw_plus_b(lstm_output, W, b, name="scores")
-
-    def _embedding(self):
-        self.input_x = tf.placeholder(
-            dtype=tf.int32,
-            shape=[None, self.config['max_sent_length']],
-            name='input_x')
-        with tf.device('/cpu:0'):
-            if not self.config['embedding_type'] == 'multiple_channels':
-                if self.config['embedding_type'] == 'static':
-                    self.embedding = tf.get_variable(
-                        "embedding",
-                        shape=self.config['embedding_shape'],
-                        initializer=tf.contrib.layers.xavier_initializer(),
-                        dtype=tf.float32,
-                        trainable=False)
-                elif self.config['embedding_type'] == 'rand':
-                    self.embedding = tf.get_variable(
-                        "embedding",
-                        shape=self.config['embedding_shape'],
-                        initializer=tf.contrib.layers.xavier_initializer(),
-                        dtype=tf.float32,
-                        trainable=True)
-                elif self.config['embedding_type'] == 'non_static':
-                    self.embedding = tf.get_variable(
-                        "embedding",
-                        shape=self.config['embedding_shape'],
-                        initializer=tf.contrib.layers.xavier_initializer(),
-                        dtype=tf.float32,
-                        trainable=True)
-                embedded = tf.nn.embedding_lookup(self.embedding, self.input_x)
-                self.input_embedded = tf.expand_dims(embedded, -1)
-            else:
-                self.embedding = tf.get_variable(
-                    "embedding",
-                    shape=self.config['embedding_shape'],
-                    initializer=tf.contrib.layers.xavier_initializer(),
-                    dtype=tf.float32,
-                    trainable=False)
-                self.another_embedding = tf.get_variable(
-                    "another_embedding",
-                    shape=self.config['embedding_shape'],
-                    initializer=tf.contrib.layers.xavier_initializer(),
-                    dtype=tf.float32,
-                    trainable=True)
-                embedded = tf.nn.embedding_lookup(self.embedding, self.input_x)
-                expaned_embedded = tf.expand_dims(embedded, -1)
-                another_embedded = tf.nn.embedding_lookup(
-                    self.another_embedding, self.input_x)
-                another_expaned_embedded = tf.expand_dims(another_embedded, -1)
-                self.input_embedded = tf.concat(
-                    [expaned_embedded, another_expaned_embedded], 3)
-
     def _text_conv_dense(self):
-        """classifical dense nets"""
+        """
+        conv_dense = bn + relu + conv2d
+        classifical dense nets
+        """
         with tf.name_scope('conv1'):
             num_in = 1 if not self.config['embedding_type'] ==\
                 'multiple_channels' else 2
@@ -1289,7 +1129,140 @@ class Model(object):
             self.l2_loss += tf.nn.l2_loss(b)
             self.logits = tf.nn.xw_plus_b(current, W, b, name="scores")
 
+    def _text_cnn_lstm(self):
+        """
+
+
+        经典CNN+LSTM
+        """
+        filter_sizes = self.config['filter_sizes']
+        embedding_size = self.config['embedding_shape'][1]
+        num_filters = self.config['num_filters']
+        num_classes = self.config['num_classes']
+        # Create a convolution + maxpool layer for each filter size
+        pooled_outputs = []
+        for i, filter_size in enumerate(filter_sizes):
+            with tf.name_scope("conv-maxpool-L%s" % filter_size):
+                # Convolution Layer
+                filter_shape = [filter_size, embedding_size, 1, num_filters]
+                W = tf.Variable(tf.truncated_normal(
+                    filter_shape, stddev=0.1), name="W")
+                b = tf.Variable(tf.constant(
+                    0.1, shape=[num_filters]), name="b")
+                conv = tf.nn.conv2d(
+                    self.input_embedded,
+                    W,
+                    strides=[1, 1, 1, 1],
+                    padding="VALID",
+                    name="conv")
+                pooled_outputs.append(conv)
+        num_features = pooled_outputs[-1].get_shape().as_list()[1]
+        num_channels = len(pooled_outputs)
+        with tf.name_scope("LSTM"):
+            input_x = [tf.squeeze(x, 2) for x in pooled_outputs]
+            input_x = reduce(lambda x, y: tf.concat(
+                [x[:, :num_features, :],
+                 y[:, :num_features, :]], axis=-1), input_x)
+            input_x = tf.unstack(input_x, axis=2)
+            lstm = tf.contrib.rnn.BasicLSTMCell(num_filters * num_channels)
+            outputs, states = tf.contrib.rnn.static_rnn(
+                lstm, input_x, dtype=tf.float32)
+            self.lstm_out = outputs[-1]
+        # Add dropout
+        with tf.name_scope("dropout"):
+            self.dropout_keep_prob = tf.placeholder(
+                tf.float32, name="dropout_keep_prob")
+            self.h_drop = tf.nn.dropout(
+                self.lstm_out, self.dropout_keep_prob)
+
+        # Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                "W",
+                shape=[num_filters * num_channels, num_classes],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
+            self.l2_loss += tf.nn.l2_loss(W)
+            self.l2_loss += tf.nn.l2_loss(b)
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+
+    def _text_bilstm(self):
+        """
+
+        经典BiLSTM
+        """
+        n_hidden = self.config['n_hidden']
+        num_classes = self.config['num_classes']
+        batch_size = self.config['batch_size']
+        with tf.name_scope("LSTM"):
+            self.dropout_keep_prob = tf.placeholder(
+                tf.float32, name="dropout_keep_prob")
+            input_x = tf.squeeze(self.input_embedded, -1)
+            lstm_fw = tf.contrib.rnn.BasicLSTMCell(n_hidden)
+            lstm_bw = tf.contrib.rnn.BasicLSTMCell(n_hidden)
+            lstm_fw_init = lstm_fw.zero_state(batch_size, tf.float32)
+            lstm_bw_init = lstm_bw.zero_state(batch_size, tf.float32)
+            lstm_fw_drop = tf.contrib.rnn.DropoutWrapper(
+                lstm_fw, output_keep_prob=self.dropout_keep_prob)
+            lstm_bw_drop = tf.contrib.rnn.DropoutWrapper(
+                lstm_bw, output_keep_prob=self.dropout_keep_prob)
+            outputs, _ = tf.nn.bidirectional_dynamic_rnn(
+                lstm_fw_drop, lstm_bw_drop,
+                input_x, dtype=tf.float32,
+                initial_state_fw=lstm_fw_init,
+                initial_state_bw=lstm_bw_init)
+            outputs = tf.concat(outputs, axis=-1)
+            # lstm_output = self._attention(outputs)
+            lstm_output = tf.squeeze(outputs[:, -1, :])
+            # lstm_max = tf.squeeze(tf.reduce_max(outputs, axis=-2))
+            # lstm_output = tf.concat([lstm_last, lstm_max], axis=-1)
+
+        # Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            n_in = lstm_output.shape[-1].value
+            W = tf.get_variable(
+                "W",
+                shape=[n_in, num_classes],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
+            self.logits = tf.nn.xw_plus_b(lstm_output, W, b, name="scores")
+
+    def _textlstm(self):
+        """
+
+
+        经典BasicLSTM
+        """
+        n_hidden = self.config['n_hidden']
+        num_classes = self.config['num_classes']
+        batch_size = self.config['batch_size']
+        with tf.name_scope("LSTM"):
+            self.dropout_keep_prob = tf.placeholder(
+                tf.float32, name="dropout_keep_prob")
+            input_x = tf.squeeze(self.input_embedded, -1)
+            lstm = tf.contrib.rnn.BasicLSTMCell(n_hidden)
+            lstm_init = lstm.zero_state(batch_size, tf.float32)
+            lstm_drop = tf.contrib.rnn.DropoutWrapper(
+                lstm, output_keep_prob=self.dropout_keep_prob)
+            outputs, _ = tf.nn.dynamic_rnn(
+                lstm_drop, input_x, dtype=tf.float32,
+                initial_state=lstm_init)
+            # lstm_output = tf.squeeze(outputs[:, -1, :])
+            lstm_output = tf.squeeze(tf.reduce_max(outputs, axis=-1))
+            # lstm_output = tf.concat([lstm_last, lstm_max], axis=-1)
+
+        # Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            n_in = lstm_output.shape[-1].value
+            W = tf.get_variable(
+                "W",
+                shape=[n_in, num_classes],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
+            self.logits = tf.nn.xw_plus_b(lstm_output, W, b, name="scores")
+
     def _text_dp_cnn(self):
+        # 多层CNN结构
         with tf.name_scope('conv1'):
             num_in = 1 if not self.config['embedding_type'] ==\
                 'multiple_channels' else 2
@@ -1305,7 +1278,7 @@ class Model(object):
             features = self.config['num_filters'] * 3
             current = conv1
             layers = 2
-            blocks = 7
+            blocks = 5
             for block in range(blocks):
                 current = self._block_dp(
                     current, layers,
@@ -1421,62 +1394,239 @@ class Model(object):
             self.l2_loss += tf.nn.l2_loss(b)
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
 
-    def _text_cnn_lstm(self):
+    def _multi_layers_cnn(self):
         """
 
-
-        经典CNN+LSTM
+        三层CNN叠加模型
         """
-        filter_sizes = self.config['filter_sizes']
-        embedding_size = self.config['embedding_shape'][1]
-        num_filters = self.config['num_filters']
-        num_classes = self.config['num_classes']
+        filter_size = self.config['filter_sizes'][-1]
+        filter_shape = [filter_size, self.config['embedding_shape']
+                        [1], 1, self.config['num_filters'] * 3]
+        W = tf.Variable(tf.truncated_normal(
+            filter_shape, stddev=0.1), name="W")
+        b = tf.Variable(tf.constant(
+            0.1, shape=[self.config['num_filters'] * 3]), name="b")
+        conv = tf.nn.conv2d(
+            self.input_embedded,
+            W,
+            strides=[1, 1, 1, 1],
+            padding="VALID",
+            name="conv")
+        # Apply nonlinearity
+        h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+        filter_shape = [filter_size, 1,
+                        self.config['num_filters'] * 3,
+                        self.config['num_filters'] * 6]
+        W = tf.Variable(tf.truncated_normal(
+            filter_shape, stddev=0.1), name="W")
+        b = tf.Variable(tf.constant(
+            0.1, shape=[self.config['num_filters'] * 6]), name="b")
+        conv = tf.nn.conv2d(
+            conv,
+            W,
+            strides=[1, 1, 1, 1],
+            padding="VALID",
+            name="conv")
+        # Apply nonlinearity
+        h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+        filter_shape = [filter_size, 1,
+                        self.config['num_filters'] * 6,
+                        self.config['num_filters'] * 9]
+        W = tf.Variable(tf.truncated_normal(
+            filter_shape, stddev=0.1), name="W")
+        b = tf.Variable(tf.constant(
+            0.1, shape=[self.config['num_filters'] * 9]), name="b")
+        conv = tf.nn.conv2d(
+            conv,
+            W,
+            strides=[1, 1, 1, 1],
+            padding="VALID",
+            name="conv")
+        # Apply nonlinearity
+        h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+        filter_shape = [h.shape[1].value, 1,
+                        self.config['num_filters'] * 9,
+                        self.config['num_filters'] * 9]
+        W = tf.Variable(tf.truncated_normal(
+            filter_shape, stddev=0.1), name="W")
+        b = tf.Variable(tf.constant(
+            0.1, shape=[self.config['num_filters'] * 9]), name="b")
+        conv = tf.nn.conv2d(
+            conv,
+            W,
+            strides=[1, 1, 1, 1],
+            padding="VALID",
+            name="conv")
+        # Apply nonlinearity
+        h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+        # # Maxpooling over the outputs
+        # pooled = tf.nn.max_pool(
+        #     h,
+        #     ksize=[1, h.get_shape().as_list()[1], 1, 1],
+        #     strides=[1, 1, 1, 1],
+        #     padding='VALID',
+        #     name="pool")
+        # self.h_pool = tf.reshape(
+        # pooled, [-1, self.config['num_filters'] * 9])
+        h = tf.squeeze(h)
+        # Add dropout
+        with tf.name_scope("dropout"):
+            self.dropout_keep_prob = tf.placeholder(
+                tf.float32, name="dropout_keep_prob")
+            self.h_drop = tf.nn.dropout(
+                h, self.dropout_keep_prob)
+
+        # Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                "W",
+                shape=[self.config['num_filters'] * 9,
+                       self.config['num_classes']],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(
+                0.1, shape=[self.config['num_classes']]), name="b")
+            self.l2_loss += tf.nn.l2_loss(W)
+            self.l2_loss += tf.nn.l2_loss(b)
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+
+    def _textcnn(self):
         # Create a convolution + maxpool layer for each filter size
         pooled_outputs = []
-        for i, filter_size in enumerate(filter_sizes):
-            with tf.name_scope("conv-maxpool-L%s" % filter_size):
+        num_in = 1 if not self.config['embedding_type'] ==\
+            'multiple_channels' else 2
+        # normed_input = self._batch_norm_layer(
+        #     self.input_embedded, self.is_training, 'bn_embedding')
+        for i, filter_size in enumerate(self.config['filter_sizes']):
+            with tf.name_scope("conv-maxpool-%s" % filter_size):
                 # Convolution Layer
-                filter_shape = [filter_size, embedding_size, 1, num_filters]
+                filter_shape = [filter_size,
+                                self.config['embedding_shape'][1],
+                                num_in, self.config['num_filters']]
                 W = tf.Variable(tf.truncated_normal(
                     filter_shape, stddev=0.1), name="W")
                 b = tf.Variable(tf.constant(
-                    0.1, shape=[num_filters]), name="b")
+                    0.1, shape=[self.config['num_filters']]), name="b")
                 conv = tf.nn.conv2d(
                     self.input_embedded,
                     W,
                     strides=[1, 1, 1, 1],
                     padding="VALID",
                     name="conv")
-                pooled_outputs.append(conv)
-        num_features = pooled_outputs[-1].get_shape().as_list()[1]
-        num_channels = len(pooled_outputs)
-        with tf.name_scope("LSTM"):
-            input_x = [tf.squeeze(x, 2) for x in pooled_outputs]
-            input_x = reduce(lambda x, y: tf.concat(
-                [x[:, :num_features, :],
-                 y[:, :num_features, :]], axis=-1), input_x)
-            input_x = tf.unstack(input_x, axis=2)
-            lstm = tf.contrib.rnn.BasicLSTMCell(num_filters * num_channels)
-            outputs, states = tf.contrib.rnn.static_rnn(
-                lstm, input_x, dtype=tf.float32)
-            self.lstm_out = outputs[-1]
+                # Apply nonlinearity
+                h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+                # Maxpooling over the outputs
+                pooled = tf.nn.max_pool(
+                    h,
+                    ksize=[1, self.config['max_sent_length'] -
+                           filter_size + 1, 1, 1],
+                    strides=[1, 1, 1, 1],
+                    padding='VALID',
+                    name="pool")
+                pooled_outputs.append(pooled)
+
+        # Combine all the pooled features
+        num_filters_total = self.config['num_filters'] *\
+            len(self.config['filter_sizes'])
+        self.h_pool = tf.concat(pooled_outputs, 3)
+        self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
+
         # Add dropout
         with tf.name_scope("dropout"):
             self.dropout_keep_prob = tf.placeholder(
                 tf.float32, name="dropout_keep_prob")
             self.h_drop = tf.nn.dropout(
-                self.lstm_out, self.dropout_keep_prob)
+                self.h_pool_flat, self.dropout_keep_prob)
 
         # Final (unnormalized) scores and predictions
         with tf.name_scope("output"):
             W = tf.get_variable(
                 "W",
-                shape=[num_filters * num_channels, num_classes],
+                shape=[num_filters_total, self.config['num_classes']],
                 initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
-            self.l2_loss += tf.nn.l2_loss(W)
-            self.l2_loss += tf.nn.l2_loss(b)
+            b = tf.Variable(tf.constant(
+                0.1, shape=[self.config['num_classes']]), name="b")
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+
+    def _down_sampling(self, outputs, name):
+        # 降采样函数
+        with tf.name_scope(name):
+            outputs = tf.nn.max_pool(
+                outputs,
+                ksize=[1, 3, 1, 1],
+                strides=[1, 2, 1, 1],
+                padding='VALID')
+        return outputs
+
+    def _transition(self, current):
+        with tf.name_scope('transition'):
+            # filter
+            num_in = num_filter = current.shape[-1].value
+            # filter size 1*1
+            filter_shape = [3, 1, num_in, num_filter]
+            # filter weights matrix
+            W_filter = self._weight_variable(filter_shape)
+            b_filter = self._bias_variable([num_filter])
+            conv1 = tf.nn.conv2d(
+                current,
+                W_filter,
+                strides=[1, 2, 1, 1],
+                padding='VALID')
+            return tf.nn.relu(tf.nn.bias_add(conv1, b_filter))
+
+    def _attention(self, hidden_state):
+        """
+        暂时还没有用
+        Hierarchical Attention Network
+        """
+        n_hidden = hidden_state.shape[-1].value
+        len_sent = hidden_state.shape[-2].value
+        hidden_state_flat = tf.reshape(hidden_state, [-1, n_hidden])
+
+        W = self._weight_variable([n_hidden, n_hidden])
+        b = self._bias_variable([n_hidden])
+        hidden_represention = tf.nn.tanh(tf.matmul(hidden_state_flat, W) + b)
+        hidden_represention = tf.reshape(
+            hidden_represention, [-1, len_sent, n_hidden])
+
+        context_vector = self._weight_variable([n_hidden])
+        hidden_state_context_similiarity = tf.multiply(
+            hidden_represention, context_vector)
+        attention_logits = tf.reduce_sum(
+            hidden_state_context_similiarity, axis=-1)
+        attention_logits_max = tf.reduce_max(
+            attention_logits, axis=-1, keep_dims=True)
+        p_attention = tf.nn.softmax(attention_logits - attention_logits_max)
+        p_attention_expanded = tf.expand_dims(p_attention, axis=-1)
+
+        sentence_representation = tf.multiply(
+            p_attention_expanded, hidden_state)
+        sentence_representation = tf.reduce_sum(
+            sentence_representation, axis=-2)
+        return sentence_representation
+
+    def _block_inception(self, input, layers,
+                         growth, is_training,
+                         keep_prob):
+        '''
+        弃用
+        '''
+        current = input
+        for idx in range(layers):
+            with tf.name_scope("layer" + str(idx)):
+                tmp = self._batch_activ_inception(
+                    current, growth, is_training,
+                    keep_prob)
+                current = tf.concat([current, tmp], axis=-1)
+        return current
+
+    def _batch_activ_inception(self, current, out_features,
+                               is_training, keep_prob):
+        current = tf.nn.relu(current)
+        current = self._inception(
+            current, name='inception',
+            num_filter=out_features, activate_function=None)
+        current = tf.nn.dropout(current, keep_prob)
+        return current
 
     def _weight_variable(self, shape):
         initial = tf.truncated_normal(shape, stddev=0.01)

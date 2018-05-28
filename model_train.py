@@ -23,14 +23,14 @@ tf.flags.DEFINE_integer("embedding_dim", 300,
 tf.flags.DEFINE_string("filter_sizes", "3,4,5",
                        "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer(
-    "num_filters", 100, "Number of filters per filter size (default: 400)")
+    "num_filters", 100, "Number of filters per filter size (default: 300)")
 tf.flags.DEFINE_integer(
     "n_hidden", 1024, "Size of hidden cell (default: 300)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5,
                       "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0,
                       "L2 regularization lambda (default: 0.0)")
-tf.flags.DEFINE_float("learning_rate", 1e-3, "learning rate")
+tf.flags.DEFINE_float("learning_rate", 1e-4, "learning rate")
 tf.flags.DEFINE_float("decay_rate", 0.96, "decay rate")
 
 # Training parameters
@@ -155,7 +155,7 @@ def main(_):
                    "text_dense", "text_conv_dense",
                    "text_dp_cnn", "text_inception",
                    "text_inception_dense"]
-    model_types = ["dpcnn"]
+    model_types = ["text_dp_cnn"]
     # model_types = ["text_conv_dense"]
     train_indexes = range(1, 2)
     # song_no_select_summary_description song_no_select
@@ -173,15 +173,6 @@ def main(_):
                 str(train_index) + ".csv"
             x_train, y_train, x_dev, y_dev = data_utls.load_files(
                 data_files, validation=False)
-            # train_files = [data_dir +
-            #                str(i) + '.csv' for i in range(train_index)]
-            # test_file = FLAGS.data_dir + test_data + str(train_index) +'.csv'
-            # if not tf.gfile.Exists(data_dir + "results/"):
-            #     tf.gfile.MakeDirs(data_dir + "results/")
-            # class_file = data_dir + "results/class_" +\
-            #     str(train_index) + ".csv"
-            # x_train, y_train, x_dev, y_dev = data_utls.load_train_test_files(
-            #     train_files, test_file)
 
             features_names_selected = data_utls.features_selection(
                 x_train, y_train, FLAGS.features_selection, FLAGS.percentile)
@@ -192,7 +183,8 @@ def main(_):
                     FLAGS.embedding_dim, embedding_file)
             num_batches_per_epoch = int(
                 (18182 * (train_index + 1) - 1) / FLAGS.batch_size) + 1
-            decay_steps = int(num_batches_per_epoch * FLAGS.num_epochs * 0.1)
+            decay_steps = int(num_batches_per_epoch *
+                              FLAGS.num_epochs * 0.1)
             config_model = {
                 'num_filters': FLAGS.num_filters,
                 'filter_sizes': list(map(int, FLAGS.filter_sizes.split(","))),

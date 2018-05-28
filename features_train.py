@@ -155,7 +155,7 @@ def main(_):
                    "text_dense", "text_conv_dense",
                    "text_dp_cnn", "text_inception",
                    "text_inception_dense"]
-    model_type = "text_inception_dense"
+    model_type = "inception_dense_net1_transpose"
     assert model_type in model_types
 
     FLAGS.checkpointDir = FLAGS.checkpointDir + model_type
