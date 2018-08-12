@@ -1,2 +1,2 @@
-# graduate_text
-研究生生涯的文本处理相关代码
+# DeepTriage 
+使用类似于Inception block的形式CNN进行软件缺陷分配
